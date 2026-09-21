@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ibrar AI Assistant</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      color: #1f2937;
+    }
+    .app {
+      max-width: 760px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+    }
+    header {
+      padding: 18px 0;
+      text-align: center;
+    }
+    h1 { margin: 0 0 6px; }
+    .subtitle { margin: 0; color: #6b7280; }
+    #chat {
+      flex: 1;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 16px;
+      min-height: 55vh;
+      overflow-y: auto;
+    }
+    .msg {
+      max-width: 85%;
+      padding: 11px 14px;
+      border-radius: 14px;
+      margin: 10px 0;
+      white-space: pre-wrap;
+      line-height: 1.45;
+    }
+    .user {
+      margin-left: auto;
+      background: #e8f0fe;
+    }
+    .assistant {
+      background: #f1f3f5;
+    }
+    form {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    input {
+      flex: 1;
+      padding: 13px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      font-size: 16px;
+    }
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 0 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .6; cursor: wait; }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>Ibrar AI Assistant</h1>
+      <p class="subtitle">Your own AI application</p>
+    </header>
+
+    <section id="chat" aria-live="polite"></section>
+
+    <form id="chatForm">
+      <input id="message" autocomplete="off" placeholder="Type your message..." />
+      <button id="send" type="submit">Send</button>
+    </form>
+  </main>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("chatForm");
+    const input = document.getElementById("message");
+    const send = document.getElementById("send");
+
+    function addMessage(text, role) {
+      const div = document.createElement("div");
+      div.className = "msg " + role;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const message = input.value.trim();
+      if (!message) return;
+
+      addMessage(message, "user");
+      input.value = "";
+      send.disabled = true;
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message })
+        });
+
+        const data = await response.json();
+        addMessage(data.reply || data.error || "No response.", "assistant");
+      } catch (error) {
+        addMessage("Could not connect to the server.", "assistant");
+      } finally {
+        send.disabled = false;
+        input.focus();
+      }
+    });
+
+    addMessage("Hello! I am Ibrar AI Assistant. How can I help you?", "assistant");
+  </script>
+</body>
+</html>
