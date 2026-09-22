@@ -14,14 +14,16 @@
     .history-panel { background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; min-width: 0; }
     .history-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
     .history-header h2 { font-size: 17px; margin: 0; }
-    #newChat { background: #2563eb; color: white; min-height: 38px; padding: 0 12px; font-size: 14px; }
+    #newChat, #renameSelected { color: white; min-height: 38px; padding: 0 12px; font-size: 14px; }
+    #newChat { background: #2563eb; }
+    #renameSelected { background: #059669; }
     #historyList { overflow-y: auto; flex: 1; }
     .history-row { position: relative; margin-bottom: 8px; }\n    .history-item { width: 100%; text-align: left; background: #f8fafc; color: #374151; padding: 10px 82px 10px 11px; min-height: auto; border: 1px solid #e5e7eb; overflow: hidden; }
     .history-item.active { background: #e8f0fe; border-color: #93c5fd; }
     .history-title { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 22px; }
     .history-date { display: block; margin-top: 4px; font-size: 12px; color: #6b7280; }
-    .history-actions { display: flex; gap: 3px; position: absolute; right: 8px; top: 8px; z-index: 3; }
-    .history-action { border: 0; background: transparent; color: #9ca3af; padding: 0 3px; font-size: 15px; min-height: auto; }
+    .history-actions { display: flex; gap: 4px; justify-content: flex-end; padding: 3px 2px 0; }
+    .history-action { border: 1px solid #d1d5db; background: #f8fafc; color: #4b5563; padding: 4px 7px; font-size: 12px; min-height: auto; border-radius: 7px; }
     .history-action:hover { color: #2563eb; }
     .history-action.delete:hover { color: #dc2626; }
     .chat-area { display: flex; flex-direction: column; min-width: 0; }
@@ -53,7 +55,7 @@
     <header><h1>Ibrar AI Assistant</h1><p class="subtitle">Your own AI application</p></header>
     <div class="workspace">
       <aside class="history-panel">
-        <div class="history-header"><h2>Chat History</h2><button id="newChat" type="button">+ New Chat</button></div>
+        <div class="history-header"><h2>Chat History</h2><div style="display:flex;gap:6px;"><button id="renameSelected" type="button">Rename</button><button id="newChat" type="button">+ New Chat</button></div></div>
         <div id="historyList"></div>
       </aside>
       <section class="chat-area">
@@ -82,7 +84,7 @@
   <script>
     const chat = document.getElementById("chat"), form = document.getElementById("chatForm"), input = document.getElementById("message");
     const send = document.getElementById("send"), save = document.getElementById("save"), clear = document.getElementById("clear");
-    const newChat = document.getElementById("newChat"), historyList = document.getElementById("historyList");
+    const newChat = document.getElementById("newChat"), renameSelected = document.getElementById("renameSelected"), historyList = document.getElementById("historyList");
     const renameBackdrop = document.getElementById("renameBackdrop"), renameInput = document.getElementById("renameInput");
     const renameCancel = document.getElementById("renameCancel"), renameConfirm = document.getElementById("renameConfirm");
     const CHATS_KEY = "ibrar_ai_chat_history_v2", OLD_KEY = "ibrar_ai_chat_history_v1";
@@ -122,13 +124,14 @@
         const title=document.createElement("span"); title.className="history-title"; title.textContent=item.title;
         const date=document.createElement("span"); date.className="history-date"; date.textContent=formatDate(item.updatedAt);
         const actions=document.createElement("span"); actions.className="history-actions";
-        const renameButton=document.createElement("button"); renameButton.type="button"; renameButton.className="history-action"; renameButton.textContent="✎"; renameButton.title="Rename chat";
+        const renameButton=document.createElement("button"); renameButton.type="button"; renameButton.className="history-action"; renameButton.textContent="Rename"; renameButton.title="Rename this chat";
         renameButton.addEventListener("click",(event)=>{event.stopPropagation(); openRename(item.id);});
-        const deleteButton=document.createElement("button"); deleteButton.type="button"; deleteButton.className="history-action delete"; deleteButton.textContent="×"; deleteButton.title="Delete this chat";
+        const deleteButton=document.createElement("button"); deleteButton.type="button"; deleteButton.className="history-action delete"; deleteButton.textContent="Delete"; deleteButton.title="Delete this chat";
         deleteButton.addEventListener("click",(event)=>{event.stopPropagation(); deleteChat(item.id);});
-        actions.appendChild(renameButton); actions.appendChild(deleteButton); button.appendChild(actions); button.appendChild(title); button.appendChild(date);
+        actions.appendChild(renameButton); actions.appendChild(deleteButton);
+        button.appendChild(title); button.appendChild(date);
         button.addEventListener("click",()=>loadChat(item.id));
-        wrapper.appendChild(button); historyList.appendChild(wrapper);
+        wrapper.appendChild(button); wrapper.appendChild(actions); historyList.appendChild(wrapper);
       });
     }
     function createChat() {
@@ -149,6 +152,7 @@
     }
     function openRename(id) {
       const item=chats.find((chatItem)=>chatItem.id===id); if(!item)return;
+      activeChatId=id; conversationHistory=item.messages.map((message)=>({role:message.role,content:message.content})); renderChat(); renderHistoryPanel();
       renameChatId=id; renameInput.value=item.title==="New Chat" ? "" : item.title; renameBackdrop.classList.add("show");
       setTimeout(()=>{renameInput.focus(); renameInput.select();},0);
     }
@@ -192,6 +196,7 @@
     newChat.addEventListener("click",()=>{if(conversationHistory.length)saveCurrentChat();createChat();});
     clear.addEventListener("click",clearCurrentChat);
     renameConfirm.addEventListener("click",renameActiveChat);
+    renameSelected.addEventListener("click",()=>{if(activeChatId)openRename(activeChatId);else alert("Please select a chat first.");});
     renameCancel.addEventListener("click",closeRename);
     renameBackdrop.addEventListener("click",(event)=>{if(event.target===renameBackdrop)closeRename();});
     renameInput.addEventListener("keydown",(event)=>{if(event.key==="Enter"){event.preventDefault();renameActiveChat();} if(event.key==="Escape"){event.preventDefault();closeRename();}});
