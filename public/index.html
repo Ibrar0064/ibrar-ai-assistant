@@ -57,6 +57,7 @@
     }
     input {
       flex: 1;
+      min-width: 0;
       padding: 13px 14px;
       border: 1px solid #d1d5db;
       border-radius: 12px;
@@ -65,11 +66,24 @@
     button {
       border: 0;
       border-radius: 12px;
-      padding: 0 20px;
+      padding: 0 18px;
       font-size: 16px;
       cursor: pointer;
     }
+    #send {
+      background: #2563eb;
+      color: white;
+    }
+    #clear {
+      background: #e5e7eb;
+      color: #374151;
+    }
     button:disabled { opacity: .6; cursor: wait; }
+    @media (max-width: 600px) {
+      form { flex-wrap: wrap; }
+      input { flex-basis: 100%; }
+      button { min-height: 44px; flex: 1; }
+    }
   </style>
 </head>
 <body>
@@ -84,6 +98,7 @@
     <form id="chatForm">
       <input id="message" autocomplete="off" placeholder="Type your message..." />
       <button id="send" type="submit">Send</button>
+      <button id="clear" type="button">Clear Chat</button>
     </form>
   </main>
 
@@ -92,6 +107,7 @@
     const form = document.getElementById("chatForm");
     const input = document.getElementById("message");
     const send = document.getElementById("send");
+    const clear = document.getElementById("clear");
 
     // Conversation memory for the current browser session.
     // The history is sent to the server with each message and is not
@@ -106,6 +122,22 @@
       chat.scrollTop = chat.scrollHeight;
     }
 
+    function showWelcomeMessage() {
+      addMessage("Hello! I am Ibrar AI Assistant. How can I help you?", "assistant");
+    }
+
+    clear.addEventListener("click", () => {
+      if (!conversationHistory.length) return;
+
+      const confirmed = confirm("Clear this chat and start a new conversation?");
+      if (!confirmed) return;
+
+      conversationHistory.length = 0;
+      chat.innerHTML = "";
+      showWelcomeMessage();
+      input.focus();
+    });
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const message = input.value.trim();
@@ -115,6 +147,7 @@
       conversationHistory.push({ role: "user", content: message });
       input.value = "";
       send.disabled = true;
+      clear.disabled = true;
 
       try {
         const response = await fetch("/api/chat", {
@@ -137,11 +170,12 @@
         addMessage("Could not connect to the server.", "assistant");
       } finally {
         send.disabled = false;
+        clear.disabled = false;
         input.focus();
       }
     });
 
-    addMessage("Hello! I am Ibrar AI Assistant. How can I help you?", "assistant");
+    showWelcomeMessage();
   </script>
 </body>
 </html>
