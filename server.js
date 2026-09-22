@@ -88,6 +88,31 @@ app.post("/api/chat", async (req, res) => {
       return res.status(400).json({ error: "Message is required." });
     }
 
+    // Keep conversation context in the browser and send the recent history
+    // with each request. Nothing is stored permanently on the server.
+    const rawHistory = Array.isArray(req.body?.history) ? req.body.history : [];
+    const history = rawHistory
+      .filter((item) =>
+        item &&
+        (item.role === "user" || item.role === "assistant") &&
+        typeof item.content === "string"
+      )
+      .slice(-20)
+      .map((item) => ({
+        role: item.role,
+        content: item.content.slice(0, 6000)
+      }));
+
+    // Ensure the current message is included even if the frontend history
+    // does not contain it.
+    if (
+      !history.length ||
+      history[history.length - 1].role !== "user" ||
+      history[history.length - 1].content !== message
+    ) {
+      history.push({ role: "user", content: message });
+    }
+
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -100,7 +125,7 @@ app.post("/api/chat", async (req, res) => {
         model: OPENROUTER_MODEL,
         messages: [
           { role: "system", content: SYSTEM_INSTRUCTIONS },
-          { role: "user", content: message }
+          ...history
         ]
       })
     });
