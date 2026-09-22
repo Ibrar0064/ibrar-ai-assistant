@@ -93,6 +93,11 @@
     const input = document.getElementById("message");
     const send = document.getElementById("send");
 
+    // Conversation memory for the current browser session.
+    // The history is sent to the server with each message and is not
+    // permanently saved by this frontend.
+    const conversationHistory = [];
+
     function addMessage(text, role) {
       const div = document.createElement("div");
       div.className = "msg " + role;
@@ -107,6 +112,7 @@
       if (!message) return;
 
       addMessage(message, "user");
+      conversationHistory.push({ role: "user", content: message });
       input.value = "";
       send.disabled = true;
 
@@ -114,11 +120,19 @@
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message })
+          body: JSON.stringify({
+            message,
+            history: conversationHistory.slice(-20)
+          })
         });
 
         const data = await response.json();
-        addMessage(data.reply || data.error || "No response.", "assistant");
+        const reply = data.reply || data.error || "No response.";
+        addMessage(reply, "assistant");
+
+        if (data.reply) {
+          conversationHistory.push({ role: "assistant", content: data.reply });
+        }
       } catch (error) {
         addMessage("Could not connect to the server.", "assistant");
       } finally {
