@@ -13,7 +13,7 @@
       color: #1f2937;
     }
     .app {
-      max-width: 760px;
+      max-width: 1100px;
       margin: 0 auto;
       min-height: 100vh;
       display: flex;
@@ -21,11 +21,92 @@
       padding: 20px;
     }
     header {
-      padding: 18px 0;
+      padding: 8px 0 18px;
       text-align: center;
     }
     h1 { margin: 0 0 6px; }
     .subtitle { margin: 0; color: #6b7280; }
+    .workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      gap: 14px;
+      min-height: 70vh;
+    }
+    .history-panel {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .history-header h2 {
+      font-size: 17px;
+      margin: 0;
+    }
+    #newChat {
+      background: #2563eb;
+      color: white;
+      min-height: 38px;
+      padding: 0 12px;
+      font-size: 14px;
+    }
+    #historyList {
+      overflow-y: auto;
+      flex: 1;
+    }
+    .history-item {
+      width: 100%;
+      text-align: left;
+      background: #f8fafc;
+      color: #374151;
+      margin-bottom: 8px;
+      padding: 10px 11px;
+      min-height: auto;
+      border: 1px solid #e5e7eb;
+      overflow: hidden;
+    }
+    .history-item.active {
+      background: #e8f0fe;
+      border-color: #93c5fd;
+    }
+    .history-title {
+      display: block;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-date {
+      display: block;
+      margin-top: 4px;
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .delete-history {
+      float: right;
+      border: 0;
+      background: transparent;
+      color: #9ca3af;
+      padding: 0 2px;
+      font-size: 16px;
+      min-height: auto;
+    }
+    .delete-history:hover { color: #dc2626; }
+    .chat-area {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
     #chat {
       flex: 1;
       background: white;
@@ -66,8 +147,8 @@
     button {
       border: 0;
       border-radius: 12px;
-      padding: 0 18px;
-      font-size: 16px;
+      padding: 0 16px;
+      font-size: 15px;
       cursor: pointer;
     }
     #send {
@@ -89,10 +170,13 @@
       font-size: 13px;
       margin-top: 8px;
     }
-    @media (max-width: 600px) {
+    @media (max-width: 700px) {
+      .workspace { grid-template-columns: 1fr; }
+      .history-panel { max-height: 230px; }
+      #historyList { max-height: 150px; }
       form { flex-wrap: wrap; }
       input { flex-basis: 100%; }
-      button { min-height: 44px; flex: 1; }
+      form button { min-height: 44px; flex: 1; }
     }
   </style>
 </head>
@@ -103,16 +187,28 @@
       <p class="subtitle">Your own AI application</p>
     </header>
 
-    <section id="chat" aria-live="polite"></section>
+    <div class="workspace">
+      <aside class="history-panel">
+        <div class="history-header">
+          <h2>Chat History</h2>
+          <button id="newChat" type="button">+ New Chat</button>
+        </div>
+        <div id="historyList"></div>
+      </aside>
 
-    <form id="chatForm">
-      <input id="message" autocomplete="off" placeholder="Type your message..." />
-      <button id="send" type="submit">Send</button>
-      <button id="save" type="button">Save Chat</button>
-      <button id="clear" type="button">Clear Chat</button>
-    </form>
+      <section class="chat-area">
+        <section id="chat" aria-live="polite"></section>
 
-    <div class="history-note">Chat history is saved in this browser.</div>
+        <form id="chatForm">
+          <input id="message" autocomplete="off" placeholder="Type your message..." />
+          <button id="send" type="submit">Send</button>
+          <button id="save" type="button">Save</button>
+          <button id="clear" type="button">Clear</button>
+        </form>
+
+        <div class="history-note">Your chat history is saved in this browser.</div>
+      </section>
+    </div>
   </main>
 
   <script>
@@ -122,9 +218,55 @@
     const send = document.getElementById("send");
     const save = document.getElementById("save");
     const clear = document.getElementById("clear");
+    const newChat = document.getElementById("newChat");
+    const historyList = document.getElementById("historyList");
 
-    const STORAGE_KEY = "ibrar_ai_chat_history_v1";
-    const conversationHistory = [];
+    const CHATS_KEY = "ibrar_ai_chat_history_v2";
+    const OLD_KEY = "ibrar_ai_chat_history_v1";
+
+    let chats = [];
+    let activeChatId = null;
+    let conversationHistory = [];
+
+    function makeId() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+
+    function makeTitle(history) {
+      const firstUser = history.find((item) => item.role === "user");
+      if (!firstUser) return "New Chat";
+      const clean = firstUser.content.replace(/\s+/g, " ").trim();
+      return clean.length > 38 ? clean.slice(0, 38) + "…" : clean;
+    }
+
+    function formatDate(timestamp) {
+      return new Date(timestamp).toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function persistChats() {
+      try {
+        localStorage.setItem(CHATS_KEY, JSON.stringify(chats.slice(-50)));
+        return true;
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function renderChat() {
+      chat.innerHTML = "";
+
+      if (!conversationHistory.length) {
+        addMessage("Hello! I am Ibrar AI Assistant. How can I help you?", "assistant");
+        return;
+      }
+
+      conversationHistory.forEach((item) => addMessage(item.content, item.role));
+    }
 
     function addMessage(text, role) {
       const div = document.createElement("div");
@@ -134,52 +276,206 @@
       chat.scrollTop = chat.scrollHeight;
     }
 
-    function renderHistory() {
-      chat.innerHTML = "";
-      conversationHistory.forEach((item) => {
-        addMessage(item.content, item.role);
+    function renderHistoryPanel() {
+      historyList.innerHTML = "";
+
+      const sorted = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
+
+      if (!sorted.length) {
+        const empty = document.createElement("div");
+        empty.textContent = "No saved chats yet.";
+        empty.style.color = "#6b7280";
+        empty.style.fontSize = "13px";
+        empty.style.padding = "10px 4px";
+        historyList.appendChild(empty);
+        return;
+      }
+
+      sorted.forEach((item) => {
+        const wrapper = document.createElement("div");
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "history-item" + (item.id === activeChatId ? " active" : "");
+
+        const title = document.createElement("span");
+        title.className = "history-title";
+        title.textContent = item.title;
+
+        const date = document.createElement("span");
+        date.className = "history-date";
+        date.textContent = formatDate(item.updatedAt);
+
+        button.appendChild(title);
+        button.appendChild(date);
+
+        button.addEventListener("click", () => loadChat(item.id));
+
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.className = "delete-history";
+        deleteButton.textContent = "×";
+        deleteButton.title = "Delete this chat";
+        deleteButton.addEventListener("click", (event) => {
+          event.stopPropagation();
+          deleteChat(item.id);
+        });
+
+        wrapper.appendChild(deleteButton);
+        wrapper.appendChild(button);
+        historyList.appendChild(wrapper);
       });
-
-      if (!conversationHistory.length) {
-        addMessage("Hello! I am Ibrar AI Assistant. How can I help you?", "assistant");
-      }
     }
 
-    function saveHistory() {
-      try {
-        localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify(conversationHistory.slice(-100))
-        );
-        return true;
-      } catch (error) {
-        return false;
-      }
+    function createChat() {
+      const item = {
+        id: makeId(),
+        title: "New Chat",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        messages: []
+      };
+
+      chats.push(item);
+      activeChatId = item.id;
+      conversationHistory = [];
+      persistChats();
+      renderChat();
+      renderHistoryPanel();
+      input.focus();
     }
 
-    function loadHistory() {
-      try {
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    function loadChat(id) {
+      const item = chats.find((chatItem) => chatItem.id === id);
+      if (!item) return;
 
-        if (Array.isArray(saved)) {
-          saved.forEach((item) => {
-            if (
-              item &&
-              (item.role === "user" || item.role === "assistant") &&
-              typeof item.content === "string"
-            ) {
-              conversationHistory.push({
-                role: item.role,
-                content: item.content.slice(0, 6000)
-              });
-            }
+      activeChatId = item.id;
+      conversationHistory = item.messages.map((message) => ({
+        role: message.role,
+        content: message.content
+      }));
+
+      renderChat();
+      renderHistoryPanel();
+      input.focus();
+    }
+
+    function saveCurrentChat() {
+      let item = chats.find((chatItem) => chatItem.id === activeChatId);
+
+      if (!item) {
+        item = {
+          id: makeId(),
+          title: makeTitle(conversationHistory),
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          messages: []
+        };
+        chats.push(item);
+        activeChatId = item.id;
+      }
+
+      item.messages = conversationHistory.slice(-100).map((message) => ({
+        role: message.role,
+        content: message.content
+      }));
+      item.title = makeTitle(conversationHistory);
+      item.updatedAt = Date.now();
+
+      const saved = persistChats();
+      renderHistoryPanel();
+      return saved;
+    }
+
+    function deleteChat(id) {
+      const item = chats.find((chatItem) => chatItem.id === id);
+      if (!item) return;
+
+      if (!confirm("Delete this saved chat?")) return;
+
+      chats = chats.filter((chatItem) => chatItem.id !== id);
+
+      if (activeChatId === id) {
+        if (chats.length) {
+          const latest = [...chats].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+          loadChat(latest.id);
+        } else {
+          activeChatId = null;
+          conversationHistory = [];
+          createChat();
+          return;
+        }
+      }
+
+      persistChats();
+      renderHistoryPanel();
+    }
+
+    function clearCurrentChat() {
+      if (!conversationHistory.length) return;
+
+      if (!confirm("Clear this chat and remove it from Chat History?")) return;
+
+      chats = chats.filter((item) => item.id !== activeChatId);
+      persistChats();
+
+      activeChatId = null;
+      conversationHistory = [];
+      createChat();
+    }
+
+    function migrateOldHistory() {
+      try {
+        const old = JSON.parse(localStorage.getItem(OLD_KEY) || "[]");
+
+        if (Array.isArray(old) && old.length) {
+          chats.push({
+            id: makeId(),
+            title: makeTitle(old),
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            messages: old.filter(
+              (item) =>
+                item &&
+                (item.role === "user" || item.role === "assistant") &&
+                typeof item.content === "string"
+            ).slice(-100)
           });
         }
+
+        localStorage.removeItem(OLD_KEY);
       } catch (error) {
-        console.warn("Could not load saved chat history.", error);
+        console.warn("Could not migrate previous chat history.", error);
+      }
+    }
+
+    function loadAllChats() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(CHATS_KEY) || "[]");
+
+        if (Array.isArray(saved)) {
+          chats = saved.filter(
+            (item) =>
+              item &&
+              typeof item.id === "string" &&
+              Array.isArray(item.messages)
+          );
+        }
+
+        if (!chats.length) migrateOldHistory();
+      } catch (error) {
+        chats = [];
       }
 
-      renderHistory();
+      if (chats.length) {
+        const latest = [...chats].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+        loadChat(latest.id);
+      } else {
+        createChat();
+      }
+
+      persistChats();
+      renderHistoryPanel();
     }
 
     save.addEventListener("click", () => {
@@ -188,24 +484,21 @@
         return;
       }
 
-      if (saveHistory()) {
-        alert("Chat history saved successfully on this browser.");
+      if (saveCurrentChat()) {
+        alert("Chat saved successfully.");
       } else {
-        alert("Could not save the chat history.");
+        alert("Could not save the chat.");
       }
     });
 
-    clear.addEventListener("click", () => {
-      if (!conversationHistory.length) return;
-
-      const confirmed = confirm("Clear this chat and delete its saved history?");
-      if (!confirmed) return;
-
-      conversationHistory.length = 0;
-      localStorage.removeItem(STORAGE_KEY);
-      renderHistory();
-      input.focus();
+    newChat.addEventListener("click", () => {
+      if (conversationHistory.length) {
+        saveCurrentChat();
+      }
+      createChat();
     });
+
+    clear.addEventListener("click", clearCurrentChat);
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -214,12 +507,13 @@
 
       addMessage(message, "user");
       conversationHistory.push({ role: "user", content: message });
-      saveHistory();
+      saveCurrentChat();
 
       input.value = "";
       send.disabled = true;
       clear.disabled = true;
       save.disabled = true;
+      newChat.disabled = true;
 
       try {
         const response = await fetch("/api/chat", {
@@ -237,19 +531,21 @@
 
         if (data.reply) {
           conversationHistory.push({ role: "assistant", content: data.reply });
-          saveHistory();
+          saveCurrentChat();
         }
       } catch (error) {
         addMessage("Could not connect to the server.", "assistant");
+        saveCurrentChat();
       } finally {
         send.disabled = false;
         clear.disabled = false;
         save.disabled = false;
+        newChat.disabled = false;
         input.focus();
       }
     });
 
-    loadHistory();
+    loadAllChats();
   </script>
 </body>
 </html>
