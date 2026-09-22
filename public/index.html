@@ -78,7 +78,17 @@
       background: #e5e7eb;
       color: #374151;
     }
+    #save {
+      background: #dbeafe;
+      color: #1e40af;
+    }
     button:disabled { opacity: .6; cursor: wait; }
+    .history-note {
+      text-align: center;
+      color: #6b7280;
+      font-size: 13px;
+      margin-top: 8px;
+    }
     @media (max-width: 600px) {
       form { flex-wrap: wrap; }
       input { flex-basis: 100%; }
@@ -98,8 +108,11 @@
     <form id="chatForm">
       <input id="message" autocomplete="off" placeholder="Type your message..." />
       <button id="send" type="submit">Send</button>
+      <button id="save" type="button">Save Chat</button>
       <button id="clear" type="button">Clear Chat</button>
     </form>
+
+    <div class="history-note">Chat history is saved in this browser.</div>
   </main>
 
   <script>
@@ -107,11 +120,10 @@
     const form = document.getElementById("chatForm");
     const input = document.getElementById("message");
     const send = document.getElementById("send");
+    const save = document.getElementById("save");
     const clear = document.getElementById("clear");
 
-    // Conversation memory for the current browser session.
-    // The history is sent to the server with each message and is not
-    // permanently saved by this frontend.
+    const STORAGE_KEY = "ibrar_ai_chat_history_v1";
     const conversationHistory = [];
 
     function addMessage(text, role) {
@@ -122,19 +134,76 @@
       chat.scrollTop = chat.scrollHeight;
     }
 
-    function showWelcomeMessage() {
-      addMessage("Hello! I am Ibrar AI Assistant. How can I help you?", "assistant");
+    function renderHistory() {
+      chat.innerHTML = "";
+      conversationHistory.forEach((item) => {
+        addMessage(item.content, item.role);
+      });
+
+      if (!conversationHistory.length) {
+        addMessage("Hello! I am Ibrar AI Assistant. How can I help you?", "assistant");
+      }
     }
+
+    function saveHistory() {
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(conversationHistory.slice(-100))
+        );
+        return true;
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function loadHistory() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+
+        if (Array.isArray(saved)) {
+          saved.forEach((item) => {
+            if (
+              item &&
+              (item.role === "user" || item.role === "assistant") &&
+              typeof item.content === "string"
+            ) {
+              conversationHistory.push({
+                role: item.role,
+                content: item.content.slice(0, 6000)
+              });
+            }
+          });
+        }
+      } catch (error) {
+        console.warn("Could not load saved chat history.", error);
+      }
+
+      renderHistory();
+    }
+
+    save.addEventListener("click", () => {
+      if (!conversationHistory.length) {
+        alert("There is no chat to save yet.");
+        return;
+      }
+
+      if (saveHistory()) {
+        alert("Chat history saved successfully on this browser.");
+      } else {
+        alert("Could not save the chat history.");
+      }
+    });
 
     clear.addEventListener("click", () => {
       if (!conversationHistory.length) return;
 
-      const confirmed = confirm("Clear this chat and start a new conversation?");
+      const confirmed = confirm("Clear this chat and delete its saved history?");
       if (!confirmed) return;
 
       conversationHistory.length = 0;
-      chat.innerHTML = "";
-      showWelcomeMessage();
+      localStorage.removeItem(STORAGE_KEY);
+      renderHistory();
       input.focus();
     });
 
@@ -145,9 +214,12 @@
 
       addMessage(message, "user");
       conversationHistory.push({ role: "user", content: message });
+      saveHistory();
+
       input.value = "";
       send.disabled = true;
       clear.disabled = true;
+      save.disabled = true;
 
       try {
         const response = await fetch("/api/chat", {
@@ -165,17 +237,19 @@
 
         if (data.reply) {
           conversationHistory.push({ role: "assistant", content: data.reply });
+          saveHistory();
         }
       } catch (error) {
         addMessage("Could not connect to the server.", "assistant");
       } finally {
         send.disabled = false;
         clear.disabled = false;
+        save.disabled = false;
         input.focus();
       }
     });
 
-    showWelcomeMessage();
+    loadHistory();
   </script>
 </body>
 </html>
