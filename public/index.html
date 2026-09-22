@@ -16,11 +16,11 @@
     .history-header h2 { font-size: 17px; margin: 0; }
     #newChat { background: #2563eb; color: white; min-height: 38px; padding: 0 12px; font-size: 14px; }
     #historyList { overflow-y: auto; flex: 1; }
-    .history-item { width: 100%; text-align: left; background: #f8fafc; color: #374151; margin-bottom: 8px; padding: 10px 11px; min-height: auto; border: 1px solid #e5e7eb; overflow: hidden; }
+    .history-row { position: relative; margin-bottom: 8px; }\n    .history-item { width: 100%; text-align: left; background: #f8fafc; color: #374151; padding: 10px 82px 10px 11px; min-height: auto; border: 1px solid #e5e7eb; overflow: hidden; }
     .history-item.active { background: #e8f0fe; border-color: #93c5fd; }
     .history-title { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 22px; }
     .history-date { display: block; margin-top: 4px; font-size: 12px; color: #6b7280; }
-    .history-actions { display: flex; gap: 3px; float: right; position: relative; z-index: 2; }
+    .history-actions { display: flex; gap: 3px; position: absolute; right: 8px; top: 8px; z-index: 3; }
     .history-action { border: 0; background: transparent; color: #9ca3af; padding: 0 3px; font-size: 15px; min-height: auto; }
     .history-action:hover { color: #2563eb; }
     .history-action.delete:hover { color: #dc2626; }
