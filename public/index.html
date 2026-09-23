@@ -17,7 +17,9 @@
     #newChat, #renameSelected { color: white; min-height: 38px; padding: 0 12px; font-size: 14px; }
     #newChat { background: #2563eb; }
     #renameSelected { background: #059669; }
-    #historySearch { width: 100%; margin: 0 0 10px; padding: 10px 11px; font-size: 14px; }
+    #historySearch { width: 100%; margin: 0; padding: 10px 11px; font-size: 14px; border: 1px solid #d1d5db; border-radius: 10px; }
+    #searchChats { background: #7c3aed; color: white; min-height: 42px; padding: 0 14px; font-size: 14px; }
+    .history-search { display: flex; gap: 7px; margin: 0 0 10px; }
     #historyList { overflow-y: auto; flex: 1; }
     .history-row { position: relative; margin-bottom: 8px; }\n    .history-item { width: 100%; text-align: left; background: #f8fafc; color: #374151; padding: 10px 82px 10px 11px; min-height: auto; border: 1px solid #e5e7eb; overflow: hidden; }
     .history-item.active { background: #e8f0fe; border-color: #93c5fd; }
@@ -57,7 +59,7 @@
     <div class="workspace">
       <aside class="history-panel">
         <div class="history-header"><h2>Chat History</h2><div style="display:flex;gap:6px;"><button id="renameSelected" type="button">Rename</button><button id="newChat" type="button">+ New Chat</button></div></div>
-        <input id="historySearch" type="search" autocomplete="off" placeholder="Search chats..." aria-label="Search chat history" />
+        <div class="history-search"><input id="historySearch" type="search" autocomplete="off" placeholder="Search chats..." aria-label="Search chat history" /><button id="searchChats" type="button">Search</button></div>
         <div id="historyList"></div>
       </aside>
       <section class="chat-area">
@@ -86,7 +88,7 @@
   <script>
     const chat = document.getElementById("chat"), form = document.getElementById("chatForm"), input = document.getElementById("message");
     const send = document.getElementById("send"), save = document.getElementById("save"), clear = document.getElementById("clear");
-    const newChat = document.getElementById("newChat"), renameSelected = document.getElementById("renameSelected"), historyList = document.getElementById("historyList"), historySearch = document.getElementById("historySearch");
+    const newChat = document.getElementById("newChat"), renameSelected = document.getElementById("renameSelected"), historyList = document.getElementById("historyList"), historySearch = document.getElementById("historySearch"), searchChats = document.getElementById("searchChats");
     const renameBackdrop = document.getElementById("renameBackdrop"), renameInput = document.getElementById("renameInput");
     const renameCancel = document.getElementById("renameCancel"), renameConfirm = document.getElementById("renameConfirm");
     const CHATS_KEY = "ibrar_ai_chat_history_v2", OLD_KEY = "ibrar_ai_chat_history_v1";
@@ -207,7 +209,8 @@
     clear.addEventListener("click",clearCurrentChat);
     renameConfirm.addEventListener("click",renameActiveChat);
     renameSelected.addEventListener("click",()=>{if(activeChatId)openRename(activeChatId);else alert("Please select a chat first.");});
-    historySearch.addEventListener("input",renderHistoryPanel);
+    searchChats.addEventListener("click",renderHistoryPanel);
+    historySearch.addEventListener("keydown",(event)=>{if(event.key==="Enter"){event.preventDefault();renderHistoryPanel();}});
     renameCancel.addEventListener("click",closeRename);
     renameBackdrop.addEventListener("click",(event)=>{if(event.target===renameBackdrop)closeRename();});
     renameInput.addEventListener("keydown",(event)=>{if(event.key==="Enter"){event.preventDefault();renameActiveChat();} if(event.key==="Escape"){event.preventDefault();closeRename();}});
