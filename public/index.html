@@ -36,7 +36,7 @@
     form { display: flex; gap: 10px; margin-top: 14px; }
     input { flex: 1; min-width: 0; padding: 13px 14px; border: 1px solid #d1d5db; border-radius: 12px; font-size: 16px; }
     button { border: 0; border-radius: 12px; padding: 0 16px; font-size: 15px; cursor: pointer; }
-    #send { background: #2563eb; color: white; } #clear { background: #e5e7eb; color: #374151; } #save { background: #dbeafe; color: #1e40af; }
+    #send { background: #2563eb; color: white; } #clear { background: #e5e7eb; color: #374151; } #save { background: #dbeafe; color: #1e40af; } #voice { background: #dcfce7; color: #166534; min-width: 48px; } #voice.listening { background: #fee2e2; color: #991b1b; }
     button:disabled { opacity: .6; cursor: wait; }
     .history-note { text-align: center; color: #6b7280; font-size: 13px; margin-top: 8px; }
     .modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
@@ -66,7 +66,7 @@
         <section id="chat" aria-live="polite"></section>
         <form id="chatForm">
           <input id="message" autocomplete="off" placeholder="Type your message..." />
-          <button id="send" type="submit">Send</button><button id="save" type="button">Save</button><button id="clear" type="button">Clear</button>
+          <button id="voice" type="button" title="Voice input">🎤</button><button id="send" type="submit">Send</button><button id="save" type="button">Save</button><button id="clear" type="button">Clear</button>
         </form>
         <div class="history-note">Your chat history is saved in this browser.</div>
       </section>
@@ -87,7 +87,7 @@
 
   <script>
     const chat = document.getElementById("chat"), form = document.getElementById("chatForm"), input = document.getElementById("message");
-    const send = document.getElementById("send"), save = document.getElementById("save"), clear = document.getElementById("clear");
+    const send = document.getElementById("send"), save = document.getElementById("save"), clear = document.getElementById("clear"), voice = document.getElementById("voice");
     const newChat = document.getElementById("newChat"), renameSelected = document.getElementById("renameSelected"), historyList = document.getElementById("historyList"), historySearch = document.getElementById("historySearch"), searchChats = document.getElementById("searchChats");
     const renameBackdrop = document.getElementById("renameBackdrop"), renameInput = document.getElementById("renameInput");
     const renameCancel = document.getElementById("renameCancel"), renameConfirm = document.getElementById("renameConfirm");
@@ -204,6 +204,57 @@
       if(chats.length){const latest=[...chats].sort((a,b)=>b.updatedAt-a.updatedAt)[0];loadChat(latest.id);} else createChat();
       persistChats(); renderHistoryPanel();
     }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let isListening = false;
+
+    function setupVoiceInput() {
+      if (!SpeechRecognition) {
+        voice.disabled = true;
+        voice.title = "Voice input is not supported in this browser.";
+        return;
+      }
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = navigator.language || "en-US";
+
+      recognition.onstart = () => {
+        isListening = true;
+        voice.classList.add("listening");
+        voice.textContent = "⏹";
+        voice.title = "Stop voice input";
+      };
+      recognition.onresult = (event) => {
+        let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        input.value = transcript;
+      };
+      recognition.onerror = (event) => {
+        console.warn("Voice input error:", event.error);
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          alert("Microphone permission was denied. Please allow microphone access for this website.");
+        }
+      };
+      recognition.onend = () => {
+        isListening = false;
+        voice.classList.remove("listening");
+        voice.textContent = "🎤";
+        voice.title = "Voice input";
+      };
+      voice.addEventListener("click", () => {
+        if (isListening) {
+          recognition.stop();
+        } else {
+          try { recognition.start(); }
+          catch (error) { console.warn("Could not start voice input.", error); }
+        }
+      });
+    }
+
+    setupVoiceInput();
     save.addEventListener("click",()=>{if(!conversationHistory.length){alert("There is no chat to save yet.");return;} if(saveCurrentChat())alert("Chat saved successfully.");else alert("Could not save the chat.");});
     newChat.addEventListener("click",()=>{if(conversationHistory.length)saveCurrentChat();createChat();});
     clear.addEventListener("click",clearCurrentChat);
