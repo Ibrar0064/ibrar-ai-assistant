@@ -36,7 +36,7 @@
     form { display: flex; gap: 10px; margin-top: 14px; }
     input { flex: 1; min-width: 0; padding: 13px 14px; border: 1px solid #d1d5db; border-radius: 12px; font-size: 16px; }
     button { border: 0; border-radius: 12px; padding: 0 16px; font-size: 15px; cursor: pointer; }
-    #send { background: #2563eb; color: white; } #clear { background: #e5e7eb; color: #374151; } #save { background: #dbeafe; color: #1e40af; } #voice { background: #dcfce7; color: #166534; min-width: 48px; } #voice.listening { background: #fee2e2; color: #991b1b; } #speak { background: #fef3c7; color: #92400e; min-width: 48px; } #speak.speaking { background: #fed7aa; }
+    #send { background: #2563eb; color: white; } #clear { background: #e5e7eb; color: #374151; } #save { background: #dbeafe; color: #1e40af; } #voice { background: #dcfce7; color: #166534; min-width: 48px; } #voiceConversation { background: #ede9fe; color: #6d28d9; min-width: 48px; } #voiceConversation.active { background: #ddd6fe; color: #5b21b6; } #voice.listening { background: #fee2e2; color: #991b1b; } #speak { background: #fef3c7; color: #92400e; min-width: 48px; } #speak.speaking { background: #fed7aa; }
     button:disabled { opacity: .6; cursor: wait; }
     .history-note { text-align: center; color: #6b7280; font-size: 13px; margin-top: 8px; }
     .modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
@@ -66,7 +66,7 @@
         <section id="chat" aria-live="polite"></section>
         <form id="chatForm">
           <input id="message" autocomplete="off" placeholder="Type your message..." />
-          <button id="voice" type="button" title="Voice input">🎤</button><button id="speak" type="button" title="Voice output">🔊</button><button id="send" type="submit">Send</button><button id="save" type="button">Save</button><button id="clear" type="button">Clear</button>
+          <button id="voice" type="button" title="Voice input">🎤</button><button id="voiceConversation" type="button" title="Voice Conversation Mode">🎙️</button><button id="speak" type="button" title="Voice output">🔊</button><button id="send" type="submit">Send</button><button id="save" type="button">Save</button><button id="clear" type="button">Clear</button>
         </form>
         <div class="history-note">Your chat history is saved in this browser.</div>
       </section>
@@ -87,7 +87,7 @@
 
   <script>
     const chat = document.getElementById("chat"), form = document.getElementById("chatForm"), input = document.getElementById("message");
-    const send = document.getElementById("send"), save = document.getElementById("save"), clear = document.getElementById("clear"), voice = document.getElementById("voice"), speak = document.getElementById("speak");
+    const send = document.getElementById("send"), save = document.getElementById("save"), clear = document.getElementById("clear"), voice = document.getElementById("voice"), voiceConversation = document.getElementById("voiceConversation"), speak = document.getElementById("speak");
     const newChat = document.getElementById("newChat"), renameSelected = document.getElementById("renameSelected"), historyList = document.getElementById("historyList"), historySearch = document.getElementById("historySearch"), searchChats = document.getElementById("searchChats");
     const renameBackdrop = document.getElementById("renameBackdrop"), renameInput = document.getElementById("renameInput");
     const renameCancel = document.getElementById("renameCancel"), renameConfirm = document.getElementById("renameConfirm");
@@ -204,6 +204,67 @@
       if(chats.length){const latest=[...chats].sort((a,b)=>b.updatedAt-a.updatedAt)[0];loadChat(latest.id);} else createChat();
       persistChats(); renderHistoryPanel();
     }
+    // Realtime Voice Conversation Mode (WebRTC)
+    let realtimePc = null, realtimeDc = null, realtimeStream = null, realtimeAudio = null, voiceConversationActive = false;
+    function setVoiceConversationState(active, label) {
+      voiceConversationActive = active;
+      voiceConversation.classList.toggle("active", active);
+      voiceConversation.textContent = active ? "⏹️" : "🎙️";
+      voiceConversation.title = label || (active ? "Stop Voice Conversation" : "Voice Conversation Mode");
+    }
+    async function startVoiceConversation() {
+      try {
+        setVoiceConversationState(true, "Connecting...");
+        const tokenResponse = await fetch("/api/realtime-token");
+        const tokenData = await tokenResponse.json();
+        if (!tokenResponse.ok || !tokenData.value) throw new Error(tokenData.error || "Could not create voice session.");
+        realtimePc = new RTCPeerConnection();
+        realtimeAudio = document.createElement("audio");
+        realtimeAudio.autoplay = true;
+        document.body.appendChild(realtimeAudio);
+        realtimePc.ontrack = (event) => { realtimeAudio.srcObject = event.streams[0]; };
+        realtimeStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        realtimePc.addTrack(realtimeStream.getTracks()[0]);
+        realtimeDc = realtimePc.createDataChannel("oai-events");
+        realtimeDc.onopen = () => setVoiceConversationState(true, "Voice Conversation Active — tap to stop");
+        realtimeDc.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "conversation.item.input_audio_transcription.completed" && data.transcript) {
+              conversationHistory.push({role:"user",content:data.transcript}); addMessage("🎙️ " + data.transcript, "user"); saveCurrentChat();
+            }
+            if (data.type === "response.output_audio_transcript.done" && data.transcript) {
+              conversationHistory.push({role:"assistant",content:data.transcript}); addMessage("🔊 " + data.transcript, "assistant"); saveCurrentChat();
+            }
+          } catch (_) {}
+        };
+        const offer = await realtimePc.createOffer();
+        await realtimePc.setLocalDescription(offer);
+        const sdpResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
+          method: "POST",
+          body: offer.sdp,
+          headers: { "Authorization": "Bearer " + tokenData.value, "Content-Type": "application/sdp" }
+        });
+        if (!sdpResponse.ok) throw new Error("Realtime connection failed.");
+        await realtimePc.setRemoteDescription({ type: "answer", sdp: await sdpResponse.text() });
+      } catch (error) {
+        console.error("Voice Conversation error:", error);
+        alert("Voice Conversation could not start. " + error.message);
+        await stopVoiceConversation();
+      }
+    }
+    async function stopVoiceConversation() {
+      if (realtimeDc) { try { realtimeDc.close(); } catch (_) {} }
+      if (realtimePc) { try { realtimePc.close(); } catch (_) {} }
+      if (realtimeStream) realtimeStream.getTracks().forEach(track => track.stop());
+      if (realtimeAudio) realtimeAudio.remove();
+      realtimeDc = realtimePc = realtimeStream = realtimeAudio = null;
+      setVoiceConversationState(false, "Voice Conversation Mode");
+    }
+    voiceConversation.addEventListener("click", () => {
+      if (voiceConversationActive) stopVoiceConversation(); else startVoiceConversation();
+    });
+
     const SpeechSynthesis = window.speechSynthesis;
     let currentSpeech = null;
 
