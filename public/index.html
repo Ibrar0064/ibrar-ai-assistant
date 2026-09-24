@@ -204,65 +204,136 @@
       if(chats.length){const latest=[...chats].sort((a,b)=>b.updatedAt-a.updatedAt)[0];loadChat(latest.id);} else createChat();
       persistChats(); renderHistoryPanel();
     }
-    // Realtime Voice Conversation Mode (WebRTC)
-    let realtimePc = null, realtimeDc = null, realtimeStream = null, realtimeAudio = null, voiceConversationActive = false;
+    // Voice Conversation Mode — browser speech recognition + existing AI chat + browser speech synthesis.
+    // This version does not require an OpenAI API key.
+    let voiceConversationActive = false;
+    let voiceConversationRecognition = null;
+    let voiceConversationSpeaking = false;
+
     function setVoiceConversationState(active, label) {
       voiceConversationActive = active;
       voiceConversation.classList.toggle("active", active);
       voiceConversation.textContent = active ? "⏹️" : "🎙️";
       voiceConversation.title = label || (active ? "Stop Voice Conversation" : "Voice Conversation Mode");
     }
-    async function startVoiceConversation() {
+
+    function startVoiceConversation() {
+      if (!SpeechRecognition) {
+        alert("Voice Conversation is not supported in this browser. Please use Chrome or another browser with speech recognition support.");
+        return;
+      }
+      if (voiceConversationActive) return;
+
+      voiceConversationRecognition = new SpeechRecognition();
+      voiceConversationRecognition.continuous = true;
+      voiceConversationRecognition.interimResults = false;
+      voiceConversationRecognition.lang = navigator.language || "en-US";
+
+      voiceConversationRecognition.onstart = () => {
+        setVoiceConversationState(true, "Listening — speak now. Tap to stop.");
+      };
+
+      voiceConversationRecognition.onresult = async (event) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (!event.results[i].isFinal) continue;
+          const transcript = event.results[i][0].transcript.trim();
+          if (!transcript || voiceConversationSpeaking || send.disabled) continue;
+          await processVoiceConversationMessage(transcript);
+        }
+      };
+
+      voiceConversationRecognition.onerror = (event) => {
+        console.warn("Voice Conversation error:", event.error);
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          alert("Microphone permission was denied. Please allow microphone access for this website.");
+          stopVoiceConversation();
+        }
+      };
+
+      voiceConversationRecognition.onend = () => {
+        if (voiceConversationActive && !voiceConversationSpeaking) {
+          try { voiceConversationRecognition.start(); } catch (_) {}
+        }
+      };
+
       try {
-        setVoiceConversationState(true, "Connecting...");
-        const tokenResponse = await fetch("/api/realtime-token");
-        const tokenData = await tokenResponse.json();
-        if (!tokenResponse.ok || !tokenData.value) throw new Error(tokenData.error || "Could not create voice session.");
-        realtimePc = new RTCPeerConnection();
-        realtimeAudio = document.createElement("audio");
-        realtimeAudio.autoplay = true;
-        document.body.appendChild(realtimeAudio);
-        realtimePc.ontrack = (event) => { realtimeAudio.srcObject = event.streams[0]; };
-        realtimeStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        realtimePc.addTrack(realtimeStream.getTracks()[0]);
-        realtimeDc = realtimePc.createDataChannel("oai-events");
-        realtimeDc.onopen = () => setVoiceConversationState(true, "Voice Conversation Active — tap to stop");
-        realtimeDc.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.type === "conversation.item.input_audio_transcription.completed" && data.transcript) {
-              conversationHistory.push({role:"user",content:data.transcript}); addMessage("🎙️ " + data.transcript, "user"); saveCurrentChat();
-            }
-            if (data.type === "response.output_audio_transcript.done" && data.transcript) {
-              conversationHistory.push({role:"assistant",content:data.transcript}); addMessage("🔊 " + data.transcript, "assistant"); saveCurrentChat();
-            }
-          } catch (_) {}
-        };
-        const offer = await realtimePc.createOffer();
-        await realtimePc.setLocalDescription(offer);
-        const sdpResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
-          method: "POST",
-          body: offer.sdp,
-          headers: { "Authorization": "Bearer " + tokenData.value, "Content-Type": "application/sdp" }
-        });
-        if (!sdpResponse.ok) throw new Error("Realtime connection failed.");
-        await realtimePc.setRemoteDescription({ type: "answer", sdp: await sdpResponse.text() });
+        voiceConversationRecognition.start();
       } catch (error) {
-        console.error("Voice Conversation error:", error);
-        alert("Voice Conversation could not start. " + error.message);
-        await stopVoiceConversation();
+        console.warn("Could not start Voice Conversation.", error);
+        setVoiceConversationState(false);
       }
     }
-    async function stopVoiceConversation() {
-      if (realtimeDc) { try { realtimeDc.close(); } catch (_) {} }
-      if (realtimePc) { try { realtimePc.close(); } catch (_) {} }
-      if (realtimeStream) realtimeStream.getTracks().forEach(track => track.stop());
-      if (realtimeAudio) realtimeAudio.remove();
-      realtimeDc = realtimePc = realtimeStream = realtimeAudio = null;
+
+    function stopVoiceConversation() {
+      voiceConversationActive = false;
+      voiceConversationSpeaking = false;
+      if (voiceConversationRecognition) {
+        try { voiceConversationRecognition.stop(); } catch (_) {}
+      }
+      voiceConversationRecognition = null;
+      if (SpeechSynthesis) SpeechSynthesis.cancel();
       setVoiceConversationState(false, "Voice Conversation Mode");
     }
+
+    async function processVoiceConversationMessage(transcript) {
+      if (!voiceConversationActive) return;
+      addMessage("🎙️ " + transcript, "user");
+      conversationHistory.push({role:"user", content:transcript});
+      saveCurrentChat();
+      send.disabled = true;
+      clear.disabled = true;
+      save.disabled = true;
+      newChat.disabled = true;
+
+      try {
+        if (voiceConversationRecognition) {
+          try { voiceConversationRecognition.stop(); } catch (_) {}
+        }
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({message:transcript, history:conversationHistory.slice(-20)})
+        });
+        const data = await response.json();
+        const reply = data.reply || data.error || "No response.";
+        addMessage("🔊 " + reply, "assistant");
+        if (data.reply) {
+          conversationHistory.push({role:"assistant",content:data.reply});
+          saveCurrentChat();
+          if (voiceConversationActive) await speakVoiceConversation(reply);
+        }
+      } catch (error) {
+        addMessage("Could not connect to the server.", "assistant");
+        saveCurrentChat();
+      } finally {
+        send.disabled = false;
+        clear.disabled = false;
+        save.disabled = false;
+        newChat.disabled = false;
+        if (voiceConversationActive && !voiceConversationSpeaking && voiceConversationRecognition) {
+          try { voiceConversationRecognition.start(); } catch (_) {}
+        }
+      }
+    }
+
+    function speakVoiceConversation(text) {
+      return new Promise((resolve) => {
+        if (!SpeechSynthesis || !text || !voiceConversationActive) { resolve(); return; }
+        voiceConversationSpeaking = true;
+        SpeechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = /[\\u0600-\\u06FF]/.test(text) ? "ur-PK" : (navigator.language || "en-US");
+        utterance.rate = 1;
+        utterance.pitch = 1;
+        utterance.onend = () => { voiceConversationSpeaking = false; resolve(); };
+        utterance.onerror = () => { voiceConversationSpeaking = false; resolve(); };
+        SpeechSynthesis.speak(utterance);
+      });
+    }
+
     voiceConversation.addEventListener("click", () => {
-      if (voiceConversationActive) stopVoiceConversation(); else startVoiceConversation();
+      if (voiceConversationActive) stopVoiceConversation();
+      else startVoiceConversation();
     });
 
     const SpeechSynthesis = window.speechSynthesis;
