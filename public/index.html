@@ -36,7 +36,7 @@
     form { display: flex; gap: 10px; margin-top: 14px; }
     input { flex: 1; min-width: 0; padding: 13px 14px; border: 1px solid #d1d5db; border-radius: 12px; font-size: 16px; }
     button { border: 0; border-radius: 12px; padding: 0 16px; font-size: 15px; cursor: pointer; }
-    #send { background: #2563eb; color: white; } #clear { background: #e5e7eb; color: #374151; } #save { background: #dbeafe; color: #1e40af; } #voice { background: #dcfce7; color: #166534; min-width: 48px; } #voice.listening { background: #fee2e2; color: #991b1b; }
+    #send { background: #2563eb; color: white; } #clear { background: #e5e7eb; color: #374151; } #save { background: #dbeafe; color: #1e40af; } #voice { background: #dcfce7; color: #166534; min-width: 48px; } #voice.listening { background: #fee2e2; color: #991b1b; } #speak { background: #fef3c7; color: #92400e; min-width: 48px; } #speak.speaking { background: #fed7aa; }
     button:disabled { opacity: .6; cursor: wait; }
     .history-note { text-align: center; color: #6b7280; font-size: 13px; margin-top: 8px; }
     .modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
@@ -66,7 +66,7 @@
         <section id="chat" aria-live="polite"></section>
         <form id="chatForm">
           <input id="message" autocomplete="off" placeholder="Type your message..." />
-          <button id="voice" type="button" title="Voice input">🎤</button><button id="send" type="submit">Send</button><button id="save" type="button">Save</button><button id="clear" type="button">Clear</button>
+          <button id="voice" type="button" title="Voice input">🎤</button><button id="speak" type="button" title="Voice output">🔊</button><button id="send" type="submit">Send</button><button id="save" type="button">Save</button><button id="clear" type="button">Clear</button>
         </form>
         <div class="history-note">Your chat history is saved in this browser.</div>
       </section>
@@ -87,7 +87,7 @@
 
   <script>
     const chat = document.getElementById("chat"), form = document.getElementById("chatForm"), input = document.getElementById("message");
-    const send = document.getElementById("send"), save = document.getElementById("save"), clear = document.getElementById("clear"), voice = document.getElementById("voice");
+    const send = document.getElementById("send"), save = document.getElementById("save"), clear = document.getElementById("clear"), voice = document.getElementById("voice"), speak = document.getElementById("speak");
     const newChat = document.getElementById("newChat"), renameSelected = document.getElementById("renameSelected"), historyList = document.getElementById("historyList"), historySearch = document.getElementById("historySearch"), searchChats = document.getElementById("searchChats");
     const renameBackdrop = document.getElementById("renameBackdrop"), renameInput = document.getElementById("renameInput");
     const renameCancel = document.getElementById("renameCancel"), renameConfirm = document.getElementById("renameConfirm");
@@ -204,6 +204,46 @@
       if(chats.length){const latest=[...chats].sort((a,b)=>b.updatedAt-a.updatedAt)[0];loadChat(latest.id);} else createChat();
       persistChats(); renderHistoryPanel();
     }
+    const SpeechSynthesis = window.speechSynthesis;
+    let currentSpeech = null;
+
+    function stopSpeaking() {
+      if (SpeechSynthesis) SpeechSynthesis.cancel();
+      currentSpeech = null;
+      speak.classList.remove("speaking");
+      speak.textContent = "🔊";
+      speak.title = "Voice output";
+    }
+
+    function speakText(text) {
+      if (!SpeechSynthesis || !text) {
+        if (!SpeechSynthesis) alert("Voice output is not supported in this browser.");
+        return;
+      }
+      stopSpeaking();
+      currentSpeech = new SpeechSynthesisUtterance(text);
+      currentSpeech.lang = /[\u0600-\u06FF]/.test(text) ? "ur-PK" : (navigator.language || "en-US");
+      currentSpeech.rate = 1;
+      currentSpeech.pitch = 1;
+      currentSpeech.onstart = () => {
+        speak.classList.add("speaking");
+        speak.textContent = "⏹";
+        speak.title = "Stop voice output";
+      };
+      currentSpeech.onend = stopSpeaking;
+      currentSpeech.onerror = stopSpeaking;
+      SpeechSynthesis.speak(currentSpeech);
+    }
+
+    speak.addEventListener("click", () => {
+      if (SpeechSynthesis && SpeechSynthesis.speaking) stopSpeaking();
+      else {
+        const lastAssistant = [...conversationHistory].reverse().find((item) => item.role === "assistant");
+        if (lastAssistant) speakText(lastAssistant.content);
+        else alert("There is no AI response to read yet.");
+      }
+    });
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let isListening = false;
