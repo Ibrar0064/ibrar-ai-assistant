@@ -5,7 +5,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 const SYSTEM_INSTRUCTIONS = `You are Ibrar AI Assistant, a helpful, professional, friendly, and practical AI assistant.
 
@@ -76,23 +75,6 @@ app.get("/api/health", (req, res) => {
     app: "Ibrar AI Assistant",
     model: OPENROUTER_MODEL
   });
-});
-
-app.get("/api/realtime-token", async (req, res) => {
-  try {
-    if (!OPENAI_API_KEY) return res.status(500).json({ error: "OPENAI_API_KEY is not configured on the server. Add it to Render Environment Variables." });
-    const response = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ session: { type: "realtime", model: "gpt-realtime-2.1", audio: { output: { voice: "marin" } } } })
-    });
-    const data = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: data?.error?.message || "Could not create realtime client secret." });
-    res.json({ value: data.value });
-  } catch (error) {
-    console.error("Realtime token error:", error);
-    res.status(500).json({ error: "Server error while creating the voice session." });
-  }
 });
 
 app.post("/api/chat", async (req, res) => {
