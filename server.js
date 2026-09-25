@@ -8,6 +8,9 @@ const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
 
 
 const AGENT_TOOLS = [
+  { type: "openrouter:web_search" },
+  { type: "openrouter:web_fetch", parameters: { engine: "openrouter", max_content_tokens: 20000 } },
+  { type: "openrouter:datetime" },
   {
     type: "function",
     function: {
@@ -20,14 +23,6 @@ const AGENT_TOOLS = [
         },
         required: ["expression"]
       }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_current_datetime",
-      description: "Get the current date and time from the server.",
-      parameters: { type: "object", properties: {} }
     }
   }
 ];
@@ -191,45 +186,66 @@ app.post("/api/chat", async (req, res) => {
 
     let assistantMessage = data?.choices?.[0]?.message;
 
-    // Agent Mode: execute model-requested local tools, then give the tool results
-    // back to the model for the final answer. The loop is capped for safety.
-    if (req.body?.agent === true && Array.isArray(assistantMessage?.tool_calls)) {
+    // Real Agent loop: OpenRouter can execute server tools (web search, web fetch,
+    // datetime) while this application executes local tools (calculator). Repeat
+    // until the model returns a final answer, with a hard safety cap.
+    if (req.body?.agent === true) {
       const agentMessages = [
         { role: "system", content: SYSTEM_INSTRUCTIONS },
         ...history,
         assistantMessage
       ];
 
-      for (const call of assistantMessage.tool_calls.slice(0, 4)) {
-        let args = {};
-        try { args = JSON.parse(call.function?.arguments || "{}"); } catch (_) {}
-        const result = runAgentTool(call.function?.name, args);
-        agentMessages.push({
-          role: "tool",
-          tool_call_id: call.id,
-          content: JSON.stringify(result)
+      for (let step = 0; step < 5; step++) {
+        const toolCalls = Array.isArray(assistantMessage?.tool_calls)
+          ? assistantMessage.tool_calls
+          : [];
+
+        if (!toolCalls.length) break;
+
+        let executedLocalTool = false;
+        for (const call of toolCalls.slice(0, 4)) {
+          if (call?.function?.name === "calculator") {
+            let args = {};
+            try { args = JSON.parse(call.function?.arguments || "{}"); } catch (_) {}
+            const result = runAgentTool(call.function.name, args);
+            agentMessages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: JSON.stringify(result)
+            });
+            executedLocalTool = true;
+          }
+        }
+
+        if (!executedLocalTool) break;
+
+        const followUp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            "HTTP-Referer": "https://ibrar-ai-assistant.onrender.com",
+            "X-Title": "Ibrar AI Assistant"
+          },
+          body: JSON.stringify({
+            model: OPENROUTER_MODEL,
+            messages: agentMessages,
+            tools: AGENT_TOOLS,
+            tool_choice: "auto"
+          })
         });
-      }
 
-      const followUp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-          "HTTP-Referer": "https://ibrar-ai-assistant.onrender.com",
-          "X-Title": "Ibrar AI Assistant"
-        },
-        body: JSON.stringify({
-          model: OPENROUTER_MODEL,
-          messages: agentMessages,
-          tools: AGENT_TOOLS,
-          tool_choice: "auto"
-        })
-      });
+        const followData = await followUp.json();
+        if (!followUp.ok) {
+          return res.status(followUp.status).json({
+            error: followData?.error?.message || "Agent tool follow-up failed."
+          });
+        }
 
-      const followData = await followUp.json();
-      if (followUp.ok && followData?.choices?.[0]?.message?.content) {
-        assistantMessage = followData.choices[0].message;
+        assistantMessage = followData?.choices?.[0]?.message;
+        if (!assistantMessage) break;
+        agentMessages.push(assistantMessage);
       }
     }
 
