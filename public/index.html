@@ -36,7 +36,7 @@
     form { display: flex; gap: 10px; margin-top: 14px; }
     input { flex: 1; min-width: 0; padding: 13px 14px; border: 1px solid #d1d5db; border-radius: 12px; font-size: 16px; }
     button { border: 0; border-radius: 12px; padding: 0 16px; font-size: 15px; cursor: pointer; }
-    #send { background: #2563eb; color: white; } #clear { background: #e5e7eb; color: #374151; } #save { background: #dbeafe; color: #1e40af; } #voice { background: #dcfce7; color: #166534; min-width: 48px; } #voiceConversation { background: #ede9fe; color: #6d28d9; min-width: 48px; } #voiceConversation.active { background: #ddd6fe; color: #5b21b6; } #voice.listening { background: #fee2e2; color: #991b1b; } #speak { background: #fef3c7; color: #92400e; min-width: 48px; } #speak.speaking { background: #fed7aa; }
+    #send { background: #2563eb; color: white; } #agentMode { background: #f3f4f6; color: #374151; min-width: 78px; } #agentMode.active { background: #dcfce7; color: #166534; } #clear { background: #e5e7eb; color: #374151; } #save { background: #dbeafe; color: #1e40af; } #voice { background: #dcfce7; color: #166534; min-width: 48px; } #voiceConversation { background: #ede9fe; color: #6d28d9; min-width: 48px; } #voiceConversation.active { background: #ddd6fe; color: #5b21b6; } #voice.listening { background: #fee2e2; color: #991b1b; } #speak { background: #fef3c7; color: #92400e; min-width: 48px; } #speak.speaking { background: #fed7aa; }
     button:disabled { opacity: .6; cursor: wait; }
     .history-note { text-align: center; color: #6b7280; font-size: 13px; margin-top: 8px; }
     .modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
@@ -87,12 +87,12 @@
 
   <script>
     const chat = document.getElementById("chat"), form = document.getElementById("chatForm"), input = document.getElementById("message");
-    const send = document.getElementById("send"), save = document.getElementById("save"), clear = document.getElementById("clear"), voice = document.getElementById("voice"), voiceConversation = document.getElementById("voiceConversation"), speak = document.getElementById("speak");
+    const send = document.getElementById("send"), agentMode = document.getElementById("agentMode"), save = document.getElementById("save"), clear = document.getElementById("clear"), voice = document.getElementById("voice"), voiceConversation = document.getElementById("voiceConversation"), speak = document.getElementById("speak");
     const newChat = document.getElementById("newChat"), renameSelected = document.getElementById("renameSelected"), historyList = document.getElementById("historyList"), historySearch = document.getElementById("historySearch"), searchChats = document.getElementById("searchChats");
     const renameBackdrop = document.getElementById("renameBackdrop"), renameInput = document.getElementById("renameInput");
     const renameCancel = document.getElementById("renameCancel"), renameConfirm = document.getElementById("renameConfirm");
     const CHATS_KEY = "ibrar_ai_chat_history_v2", OLD_KEY = "ibrar_ai_chat_history_v1";
-    let chats = [], activeChatId = null, conversationHistory = [], renameChatId = null;
+    let chats = [], activeChatId = null, conversationHistory = [], renameChatId = null, agentModeActive = false;
 
     function makeId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
     function makeTitle(history) {
@@ -204,7 +204,7 @@
       if(chats.length){const latest=[...chats].sort((a,b)=>b.updatedAt-a.updatedAt)[0];loadChat(latest.id);} else createChat();
       persistChats(); renderHistoryPanel();
     }
-    // Voice Conversation Mode — browser speech recognition + existing AI chat + browser speech synthesis.
+    function setAgentMode(active) { agentModeActive = active; agentMode.classList.toggle("active", active); agentMode.textContent = active ? "🤖 Agent ON" : "🤖 Agent"; }\n    agentMode.addEventListener("click", () => setAgentMode(!agentModeActive));\n\n    // Voice Conversation Mode — browser speech recognition + existing AI chat + browser speech synthesis.
     // This version does not require an OpenAI API key.
     let voiceConversationActive = false;
     let voiceConversationRecognition = null;
@@ -442,7 +442,7 @@
       addMessage(message,"user"); conversationHistory.push({role:"user",content:message}); saveCurrentChat(); input.value="";
       send.disabled=true;clear.disabled=true;save.disabled=true;newChat.disabled=true;
       try {
-        const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,history:conversationHistory.slice(-20)})});
+        const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,history:conversationHistory.slice(-20),agent:agentModeActive})});
         const data=await response.json(); const reply=data.reply||data.error||"No response."; addMessage(reply,"assistant");
         if(data.reply){conversationHistory.push({role:"assistant",content:data.reply});saveCurrentChat();}
       } catch(error){addMessage("Could not connect to the server.","assistant");saveCurrentChat();}
