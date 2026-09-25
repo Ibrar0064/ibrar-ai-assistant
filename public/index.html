@@ -21,7 +21,8 @@
     #searchChats { background: #7c3aed; color: white; min-height: 42px; padding: 0 14px; font-size: 14px; }
     .history-search { display: flex; gap: 7px; margin: 0 0 10px; }
     #historyList { overflow-y: auto; flex: 1; }
-    .history-row { position: relative; margin-bottom: 8px; }\n    .history-item { width: 100%; text-align: left; background: #f8fafc; color: #374151; padding: 10px 82px 10px 11px; min-height: auto; border: 1px solid #e5e7eb; overflow: hidden; }
+    .history-row { position: relative; margin-bottom: 8px; }
+    .history-item { width: 100%; text-align: left; background: #f8fafc; color: #374151; padding: 10px 82px 10px 11px; min-height: auto; border: 1px solid #e5e7eb; overflow: hidden; }
     .history-item.active { background: #e8f0fe; border-color: #93c5fd; }
     .history-title { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 22px; }
     .history-date { display: block; margin-top: 4px; font-size: 12px; color: #6b7280; }
@@ -204,7 +205,10 @@
       if(chats.length){const latest=[...chats].sort((a,b)=>b.updatedAt-a.updatedAt)[0];loadChat(latest.id);} else createChat();
       persistChats(); renderHistoryPanel();
     }
-    function setAgentMode(active) { agentModeActive = active; agentMode.classList.toggle("active", active); agentMode.textContent = active ? "🤖 Agent ON" : "🤖 Agent"; }\n    agentMode.addEventListener("click", () => setAgentMode(!agentModeActive));\n\n    // Voice Conversation Mode — browser speech recognition + existing AI chat + browser speech synthesis.
+    function setAgentMode(active) { agentModeActive = active; agentMode.classList.toggle("active", active); agentMode.textContent = active ? "🤖 Agent ON" : "🤖 Agent"; }
+    agentMode.addEventListener("click", () => setAgentMode(!agentModeActive));
+
+    // Voice Conversation Mode — browser speech recognition + existing AI chat + browser speech synthesis.
     // This version does not require an OpenAI API key.
     let voiceConversationActive = false;
     let voiceConversationRecognition = null;
