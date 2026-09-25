@@ -109,6 +109,16 @@ RESPONSE STYLE:
 
 IMPORTANT:
 Your goal is to help the user successfully complete their task, not merely to describe what could be done.
+
+AGENT MODE:
+- When Agent Mode is enabled, act as a real task agent rather than only a chat responder.
+- You can use web search, web page fetching, current date/time, and a calculator.
+- Use web search for current, changing, or uncertain information instead of guessing.
+- Use web fetch when the user gives you a URL or when a source found by search needs to be read in detail.
+- Use the calculator for arithmetic when precision matters.
+- For multi-step tasks, use the available tools as needed and verify important information before answering.
+- Do not claim that you searched, opened a page, calculated something, or used a tool unless the tool result was actually available to you.
+- Keep tool use focused and stop when the user's task is complete.
 `;
 
 app.use(express.json());
