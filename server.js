@@ -6,6 +6,56 @@ const PORT = process.env.PORT || 3000;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
 
+
+const AGENT_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "calculator",
+      description: "Calculate a mathematical expression. Use only for arithmetic calculations.",
+      parameters: {
+        type: "object",
+        properties: {
+          expression: { type: "string", description: "A mathematical expression such as (286*0.95) or 25+17." }
+        },
+        required: ["expression"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_current_datetime",
+      description: "Get the current date and time from the server.",
+      parameters: { type: "object", properties: {} }
+    }
+  }
+];
+
+function runAgentTool(name, args) {
+  if (name === "get_current_datetime") {
+    return { datetime: new Date().toISOString(), timezone: "UTC" };
+  }
+
+  if (name === "calculator") {
+    const expression = String(args?.expression || "").trim();
+    if (!expression || !/^[0-9+\\-*/().%\\s]+$/.test(expression)) {
+      return { error: "Only basic arithmetic expressions are allowed." };
+    }
+    try {
+      const result = Function('"use strict"; return (' + expression + ')')();
+      if (typeof result !== "number" || !Number.isFinite(result)) {
+        return { error: "The calculation did not produce a finite number." };
+      }
+      return { expression, result };
+    } catch {
+      return { error: "Could not calculate that expression." };
+    }
+  }
+
+  return { error: "Unknown tool." };
+}
+
 const SYSTEM_INSTRUCTIONS = `You are Ibrar AI Assistant, a helpful, professional, friendly, and practical AI assistant.
 
 PERSONALITY:
@@ -126,7 +176,8 @@ app.post("/api/chat", async (req, res) => {
         messages: [
           { role: "system", content: SYSTEM_INSTRUCTIONS },
           ...history
-        ]
+        ],
+        ...(req.body?.agent === true ? { tools: AGENT_TOOLS, tool_choice: "auto" } : {})
       })
     });
 
@@ -138,10 +189,55 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    const reply = data?.choices?.[0]?.message?.content;
+    let assistantMessage = data?.choices?.[0]?.message;
+
+    // Agent Mode: execute model-requested local tools, then give the tool results
+    // back to the model for the final answer. The loop is capped for safety.
+    if (req.body?.agent === true && Array.isArray(assistantMessage?.tool_calls)) {
+      const agentMessages = [
+        { role: "system", content: SYSTEM_INSTRUCTIONS },
+        ...history,
+        assistantMessage
+      ];
+
+      for (const call of assistantMessage.tool_calls.slice(0, 4)) {
+        let args = {};
+        try { args = JSON.parse(call.function?.arguments || "{}"); } catch (_) {}
+        const result = runAgentTool(call.function?.name, args);
+        agentMessages.push({
+          role: "tool",
+          tool_call_id: call.id,
+          content: JSON.stringify(result)
+        });
+      }
+
+      const followUp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+          "HTTP-Referer": "https://ibrar-ai-assistant.onrender.com",
+          "X-Title": "Ibrar AI Assistant"
+        },
+        body: JSON.stringify({
+          model: OPENROUTER_MODEL,
+          messages: agentMessages,
+          tools: AGENT_TOOLS,
+          tool_choice: "auto"
+        })
+      });
+
+      const followData = await followUp.json();
+      if (followUp.ok && followData?.choices?.[0]?.message?.content) {
+        assistantMessage = followData.choices[0].message;
+      }
+    }
+
+    const reply = assistantMessage?.content;
 
     res.json({
-      reply: reply || "I received your message, but no text response was returned."
+      reply: reply || "I received your message, but no text response was returned.",
+      agent: req.body?.agent === true
     });
   } catch (error) {
     console.error(error);
