@@ -3,15 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ibrar AI Assistant</title>
+  <title>Ibrar AI Agent</title>
+  <meta name="theme-color" content="#6d28d9" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Ibrar AI Agent" />
+  <link rel="manifest" href="/manifest.webmanifest" />
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, sans-serif; background: #f4f6f8; color: #1f2937; }
-    .app { max-width: 1100px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding: 20px; }
-    header { padding: 8px 0 18px; text-align: center; }
+    body { margin: 0; font-family: Arial, sans-serif; background: radial-gradient(circle at top left, #dbeafe 0, #f5f3ff 38%, #fff7ed 72%, #ecfeff 100%); color: #172033; }
+    .app { max-width: 1180px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding: 18px; }
+    header { padding: 10px 0 18px; text-align: center; position: relative; }
+    header h1 { font-size: clamp(28px, 6vw, 46px); background: linear-gradient(90deg,#2563eb,#7c3aed,#db2777,#f97316); -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:-1px; }
+    .subtitle { font-size: 14px; }
     h1 { margin: 0 0 6px; } .subtitle { margin: 0; color: #6b7280; }
     .workspace { flex: 1; display: grid; grid-template-columns: 250px 1fr; gap: 14px; min-height: 70vh; }
-    .history-panel { background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; min-width: 0; }
+    .history-panel { background: rgba(255,255,255,.82); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,.75); box-shadow: 0 14px 35px rgba(76,29,149,.10); border-radius: 20px; padding: 14px; display: flex; flex-direction: column; min-width: 0; }
     .history-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
     .history-header h2 { font-size: 17px; margin: 0; }
     #newChat, #renameSelected { color: white; min-height: 38px; padding: 0 12px; font-size: 14px; }
@@ -31,15 +39,18 @@
     .history-action:hover { color: #2563eb; }
     .history-action.delete:hover { color: #dc2626; }
     .chat-area { display: flex; flex-direction: column; min-width: 0; }
-    #chat { flex: 1; background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; min-height: 55vh; overflow-y: auto; }
+    #chat { flex: 1; background: rgba(255,255,255,.86); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,.8); box-shadow: 0 14px 35px rgba(37,99,235,.10); border-radius: 20px; padding: 16px; min-height: 55vh; overflow-y: auto; }
     .msg { max-width: 85%; padding: 11px 14px; border-radius: 14px; margin: 10px 0; white-space: pre-wrap; line-height: 1.45; }
-    .user { margin-left: auto; background: #e8f0fe; } .assistant { background: #f1f3f5; }
+    .user { margin-left: auto; color: #fff; background: linear-gradient(135deg,#2563eb,#7c3aed); box-shadow: 0 7px 18px rgba(37,99,235,.20); } .assistant { background: linear-gradient(135deg,#f0fdf4,#eff6ff); border: 1px solid #dbeafe; }
     form { display: flex; gap: 10px; margin-top: 14px; }
     input { flex: 1; min-width: 0; padding: 13px 14px; border: 1px solid #d1d5db; border-radius: 12px; font-size: 16px; }
     button { border: 0; border-radius: 12px; padding: 0 16px; font-size: 15px; cursor: pointer; }
-    #send { background: #2563eb; color: white; } #agentMode { background: #f3f4f6; color: #374151; min-width: 78px; } #agentMode.active { background: #dcfce7; color: #166534; } #clear { background: #e5e7eb; color: #374151; } #save { background: #dbeafe; color: #1e40af; } #voice { background: #dcfce7; color: #166534; min-width: 48px; } #voiceConversation { background: #ede9fe; color: #6d28d9; min-width: 48px; } #voiceConversation.active { background: #ddd6fe; color: #5b21b6; } #voice.listening { background: #fee2e2; color: #991b1b; } #speak { background: #fef3c7; color: #92400e; min-width: 48px; } #speak.speaking { background: #fed7aa; }
+    #send { background: linear-gradient(135deg,#2563eb,#7c3aed); color: white; box-shadow: 0 6px 15px rgba(37,99,235,.22); } #agentMode { background: linear-gradient(135deg,#fef3c7,#fce7f3); color: #7c2d12; min-width: 78px; } #agentMode.active { background: linear-gradient(135deg,#bbf7d0,#a7f3d0); color: #065f46; box-shadow: 0 5px 14px rgba(16,185,129,.20); } #clear { background: #fee2e2; color: #991b1b; } #save { background: #dbeafe; color: #1e40af; } #voice { background: #dcfce7; color: #166534; min-width: 48px; } #voiceConversation { background: #ede9fe; color: #6d28d9; min-width: 48px; } #voiceConversation.active { background: #ddd6fe; color: #5b21b6; } #voice.listening { background: #fee2e2; color: #991b1b; } #speak { background: #fef3c7; color: #92400e; min-width: 48px; } #speak.speaking { background: #fed7aa; }
     button:disabled { opacity: .6; cursor: wait; }
-    .history-note { text-align: center; color: #6b7280; font-size: 13px; margin-top: 8px; }
+    .history-note { text-align: center; color: #64748b; font-size: 13px; margin-top: 8px; }
+    #installApp { display:none; position:absolute; right:0; top:0; background:linear-gradient(135deg,#7c3aed,#db2777); color:#fff; min-height:40px; padding:0 13px; box-shadow:0 7px 18px rgba(124,58,237,.22); }
+    #installApp.show { display:inline-flex; align-items:center; gap:6px; }
+    @media (max-width:700px) { header { padding-top: 54px; } #installApp { top:0; right:50%; transform:translateX(50%); } }
     .modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
     .modal-backdrop.show { display: flex; }
     .rename-modal { width: min(420px, 100%); background: white; border-radius: 16px; padding: 20px; box-shadow: 0 20px 50px rgba(0,0,0,.2); }
@@ -56,7 +67,7 @@
 </head>
 <body>
   <main class="app">
-    <header><h1>Ibrar AI Assistant</h1><p class="subtitle">Your own AI application</p></header>
+    <header><button id="installApp" type="button">📲 Install App</button><h1>Ibrar AI Agent</h1><p class="subtitle">Your own colorful AI agent — smart, practical & ready to help</p></header>
     <div class="workspace">
       <aside class="history-panel">
         <div class="history-header"><h2>Chat History</h2><div style="display:flex;gap:6px;"><button id="renameSelected" type="button">Rename</button><button id="newChat" type="button">+ New Chat</button></div></div>
@@ -431,6 +442,29 @@
     }
 
     setupVoiceInput();
+
+    // PWA install support for Android/mobile home-screen app experience.
+    let deferredInstallPrompt = null;
+    const installApp = document.getElementById("installApp");
+    window.addEventListener("beforeinstallprompt", (event) => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      installApp.classList.add("show");
+    });
+    installApp.addEventListener("click", async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      try { await deferredInstallPrompt.userChoice; } catch (_) {}
+      deferredInstallPrompt = null;
+      installApp.classList.remove("show");
+    });
+    window.addEventListener("appinstalled", () => {
+      deferredInstallPrompt = null;
+      installApp.classList.remove("show");
+    });
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch((error) => console.warn("PWA service worker registration failed:", error)));
+    }
     save.addEventListener("click",()=>{if(!conversationHistory.length){alert("There is no chat to save yet.");return;} if(saveCurrentChat())alert("Chat saved successfully.");else alert("Could not save the chat.");});
     newChat.addEventListener("click",()=>{if(conversationHistory.length)saveCurrentChat();createChat();});
     clear.addEventListener("click",clearCurrentChat);
