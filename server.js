@@ -39,7 +39,7 @@ function runAgentTool(name, args) {
 
   if (name === "calculator") {
     const expression = String(args?.expression || "").trim();
-    if (!expression || !/^[0-9+\\-*/().%\\s]+$/.test(expression)) {
+    if (!expression || !/^[-0-9+*/().%\s]+$/.test(expression)) {
       return { error: "Only basic arithmetic expressions are allowed." };
     }
     try {
