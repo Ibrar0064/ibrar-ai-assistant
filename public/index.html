@@ -47,6 +47,12 @@
     button { border: 0; border-radius: 12px; padding: 0 16px; font-size: 15px; cursor: pointer; }
     #send { background: linear-gradient(135deg,#2563eb,#7c3aed); color: white; box-shadow: 0 6px 15px rgba(37,99,235,.22); } #agentMode { background: linear-gradient(135deg,#fef3c7,#fce7f3); color: #7c2d12; min-width: 78px; } #agentMode.active { background: linear-gradient(135deg,#bbf7d0,#a7f3d0); color: #065f46; box-shadow: 0 5px 14px rgba(16,185,129,.20); } #clear { background: #fee2e2; color: #991b1b; } #save { background: #dbeafe; color: #1e40af; } #voice { background: #dcfce7; color: #166534; min-width: 48px; } #voiceConversation { background: #ede9fe; color: #6d28d9; min-width: 48px; } #voiceConversation.active { background: #ddd6fe; color: #5b21b6; } #voice.listening { background: #fee2e2; color: #991b1b; } #speak { background: #fef3c7; color: #92400e; min-width: 48px; } #speak.speaking { background: #fed7aa; }
     button:disabled { opacity: .6; cursor: wait; }
+    .attachment-tools { display:flex; gap:7px; align-items:center; margin-top:10px; flex-wrap:wrap; }
+    .attachment-btn { background:linear-gradient(135deg,#e0f2fe,#ede9fe); color:#4338ca; min-height:42px; padding:0 13px; }
+    .attachment-preview { display:none; align-items:center; gap:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:7px 10px; font-size:13px; color:#334155; max-width:100%; }
+    .attachment-preview.show { display:flex; }
+    .attachment-preview span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:240px; }
+    #removeAttachment { background:#fee2e2; color:#991b1b; min-height:30px; padding:0 9px; }
     .history-note { text-align: center; color: #64748b; font-size: 13px; margin-top: 8px; }
     #installApp { display:none; position:absolute; right:0; top:0; background:linear-gradient(135deg,#7c3aed,#db2777); color:#fff; min-height:40px; padding:0 13px; box-shadow:0 7px 18px rgba(124,58,237,.22); }
     #installApp.show { display:inline-flex; align-items:center; gap:6px; }
@@ -76,8 +82,15 @@
       </aside>
       <section class="chat-area">
         <section id="chat" aria-live="polite"></section>
+        <div class="attachment-tools">
+          <button id="cameraBtn" class="attachment-btn" type="button">📷 Camera</button>
+          <button id="fileBtn" class="attachment-btn" type="button">🖼️ File</button>
+          <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden />
+          <input id="fileInput" type="file" accept="image/*" hidden />
+          <div id="attachmentPreview" class="attachment-preview"><span id="attachmentName"></span><button id="removeAttachment" type="button">Remove</button></div>
+        </div>
         <form id="chatForm">
-          <input id="message" autocomplete="off" placeholder="Type your message..." />
+          <input id="message" autocomplete="off" placeholder="Type your message or ask about the image..." />
           <button id="voice" type="button" title="Voice input">🎤</button><button id="agentMode" type="button" title="Toggle Agent Mode">🤖 Agent</button><button id="voiceConversation" type="button" title="Voice Conversation Mode">🎙️</button><button id="speak" type="button" title="Voice output">🔊</button><button id="send" type="submit">Send</button><button id="save" type="button">Save</button><button id="clear" type="button">Clear</button>
         </form>
         <div class="history-note">Your chat history is saved in this browser.</div>
@@ -100,6 +113,8 @@
   <script>
     const chat = document.getElementById("chat"), form = document.getElementById("chatForm"), input = document.getElementById("message");
     const send = document.getElementById("send"), agentMode = document.getElementById("agentMode"), save = document.getElementById("save"), clear = document.getElementById("clear"), voice = document.getElementById("voice"), voiceConversation = document.getElementById("voiceConversation"), speak = document.getElementById("speak");
+    const cameraBtn = document.getElementById("cameraBtn"), fileBtn = document.getElementById("fileBtn"), cameraInput = document.getElementById("cameraInput"), fileInput = document.getElementById("fileInput"), attachmentPreview = document.getElementById("attachmentPreview"), attachmentName = document.getElementById("attachmentName"), removeAttachment = document.getElementById("removeAttachment");
+    let attachedImage = null, attachedImageName = "";
     const newChat = document.getElementById("newChat"), renameSelected = document.getElementById("renameSelected"), historyList = document.getElementById("historyList"), historySearch = document.getElementById("historySearch"), searchChats = document.getElementById("searchChats");
     const renameBackdrop = document.getElementById("renameBackdrop"), renameInput = document.getElementById("renameInput");
     const renameCancel = document.getElementById("renameCancel"), renameConfirm = document.getElementById("renameConfirm");
@@ -475,16 +490,57 @@
     renameCancel.addEventListener("click",closeRename);
     renameBackdrop.addEventListener("click",(event)=>{if(event.target===renameBackdrop)closeRename();});
     renameInput.addEventListener("keydown",(event)=>{if(event.key==="Enter"){event.preventDefault();renameActiveChat();} if(event.key==="Escape"){event.preventDefault();closeRename();}});
+    function clearAttachment() {
+      attachedImage = null;
+      attachedImageName = "";
+      attachmentPreview.classList.remove("show");
+      attachmentName.textContent = "";
+      cameraInput.value = "";
+      fileInput.value = "";
+    }
+
+    function prepareImage(file) {
+      if (!file || !file.type.startsWith("image/")) { alert("Please select an image."); return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const image = new Image();
+        image.onload = () => {
+          const maxSize = 2200;
+          const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(image.width * scale));
+          canvas.height = Math.max(1, Math.round(image.height * scale));
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+          attachedImage = canvas.toDataURL("image/jpeg", 0.86);
+          attachedImageName = file.name || "Camera image";
+          attachmentName.textContent = "📎 " + attachedImageName;
+          attachmentPreview.classList.add("show");
+        };
+        image.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    cameraBtn.addEventListener("click", () => cameraInput.click());
+    fileBtn.addEventListener("click", () => fileInput.click());
+    cameraInput.addEventListener("change", () => prepareImage(cameraInput.files[0]));
+    fileInput.addEventListener("change", () => prepareImage(fileInput.files[0]));
+    removeAttachment.addEventListener("click", clearAttachment);
+
     form.addEventListener("submit",async(event)=>{
       event.preventDefault(); const message=input.value.trim(); if(!message)return;
-      addMessage(message,"user"); conversationHistory.push({role:"user",content:message}); saveCurrentChat(); input.value="";
+      const imageForRequest = attachedImage;
+      const imageNameForRequest = attachedImageName;
+      addMessage((imageForRequest ? "🖼️ " + imageNameForRequest + "\n" : "") + message,"user");
+      conversationHistory.push({role:"user",content:message}); saveCurrentChat(); input.value="";
       send.disabled=true;clear.disabled=true;save.disabled=true;newChat.disabled=true;
       try {
-        const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,history:conversationHistory.slice(-20),agent:agentModeActive})});
+        const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,history:conversationHistory.slice(-20),agent:agentModeActive,image:imageForRequest,imageName:imageNameForRequest})});
         const data=await response.json(); const reply=data.reply||data.error||"No response."; addMessage(reply,"assistant");
         if(data.reply){conversationHistory.push({role:"assistant",content:data.reply});saveCurrentChat();}
       } catch(error){addMessage("Could not connect to the server.","assistant");saveCurrentChat();}
-      finally{send.disabled=false;clear.disabled=false;save.disabled=false;newChat.disabled=false;input.focus();}
+      finally{clearAttachment();send.disabled=false;clear.disabled=false;save.disabled=false;newChat.disabled=false;input.focus();}
     });
     loadAllChats();
   </script>
