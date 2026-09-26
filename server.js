@@ -121,7 +121,7 @@ AGENT MODE:
 - Keep tool use focused and stop when the user's task is complete.
 `;
 
-app.use(express.json());
+app.use(express.json({ limit: "12mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/api/health", (req, res) => {
@@ -142,6 +142,37 @@ app.post("/api/chat", async (req, res) => {
     if (!message) {
       return res.status(400).json({ error: "Message is required." });
     }
+
+    const image = typeof req.body?.image === "string" ? req.body.image : "";
+    const imageName = String(req.body?.imageName || "reference image").slice(0, 200);
+    if (image && !/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(image)) {
+      return res.status(400).json({ error: "The uploaded reference must be a valid image." });
+    }
+    if (image.length > 11000000) {
+      return res.status(413).json({ error: "That image is too large. Please use a smaller image." });
+    }
+
+    const asksForSimpleAnswer = /\b(easy|simple|simplest|plain|basic|short)\b/i.test(message)
+      || /\b(آسان|سادہ|مختصر)\b/.test(message);
+
+    const dynamicInstructions = asksForSimpleAnswer
+      ? `
+EASY/SIMPLE MODE:
+- The user explicitly wants an easy/simple answer.
+- If Agent Mode is on and current information is needed, search for reliable sources first.
+- Prefer sources whose wording is understandable and whose facts are easy to explain.
+- Use the image as reference when one is attached: identify the important visible details before searching.
+- Do not make the search itself overly complicated. Search the exact practical question and use only the information needed.
+- Give the final answer in very simple language, with short sentences and the minimum necessary detail.
+- Avoid jargon. If a technical word is necessary, explain it in one short phrase.
+- Do not omit an important warning or limitation merely to make the answer shorter.
+`
+      : `
+REFERENCE IMAGE:
+- If an image is attached, inspect it carefully and use it as reference for the user's question.
+- If Agent Mode is on and the user asks for current information, identify useful details from the image and use them to form focused web searches.
+- Do not invent text or details that are not visible or reliably readable in the image.
+`;
 
     // Keep conversation context in the browser and send the recent history
     // with each request. Nothing is stored permanently on the server.
@@ -168,6 +199,24 @@ app.post("/api/chat", async (req, res) => {
       history.push({ role: "user", content: message });
     }
 
+    const requestMessages = [
+      { role: "system", content: SYSTEM_INSTRUCTIONS + "\n\n" + dynamicInstructions }
+    ];
+    const multimodalHistory = history.map((item) => ({ ...item }));
+    if (image) {
+      const lastUserIndex = [...multimodalHistory].map((item) => item.role).lastIndexOf("user");
+      if (lastUserIndex >= 0) {
+        multimodalHistory[lastUserIndex] = {
+          role: "user",
+          content: [
+            { type: "text", text: message + "\n\nAttached reference image: " + imageName },
+            { type: "image_url", image_url: { url: image } }
+          ]
+        };
+      }
+    }
+    requestMessages.push(...multimodalHistory);
+
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -178,10 +227,7 @@ app.post("/api/chat", async (req, res) => {
       },
       body: JSON.stringify({
         model: OPENROUTER_MODEL,
-        messages: [
-          { role: "system", content: SYSTEM_INSTRUCTIONS },
-          ...history
-        ],
+        messages: requestMessages,
         ...(req.body?.agent === true ? { tools: AGENT_TOOLS, tool_choice: "auto" } : {})
       })
     });
@@ -201,8 +247,7 @@ app.post("/api/chat", async (req, res) => {
     // until the model returns a final answer, with a hard safety cap.
     if (req.body?.agent === true) {
       const agentMessages = [
-        { role: "system", content: SYSTEM_INSTRUCTIONS },
-        ...history,
+        ...requestMessages,
         assistantMessage
       ];
 
