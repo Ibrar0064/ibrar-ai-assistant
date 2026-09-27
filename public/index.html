@@ -44,11 +44,36 @@
     .msg a { color:#2563eb; text-decoration:underline; font-weight:600; word-break:break-word; }
     .user a { color:#fff; }
     .user { margin-left: auto; color: #fff; background: linear-gradient(135deg,#2563eb,#7c3aed); box-shadow: 0 7px 18px rgba(37,99,235,.20); } .assistant { background: linear-gradient(135deg,#f0fdf4,#eff6ff); border: 1px solid #dbeafe; }
-    form { display: flex; gap: 10px; margin-top: 14px; }
-    input { flex: 1; min-width: 0; padding: 13px 14px; border: 1px solid #d1d5db; border-radius: 12px; font-size: 16px; }
+    input { padding: 13px 14px; border: 1px solid #d1d5db; border-radius: 12px; font-size: 16px; }
     button { border: 0; border-radius: 12px; padding: 0 16px; font-size: 15px; cursor: pointer; }
     #send { background: linear-gradient(135deg,#2563eb,#7c3aed); color: white; box-shadow: 0 6px 15px rgba(37,99,235,.22); } #agentMode { background: linear-gradient(135deg,#fef3c7,#fce7f3); color: #7c2d12; min-width: 78px; } #agentMode.active { background: linear-gradient(135deg,#bbf7d0,#a7f3d0); color: #065f46; box-shadow: 0 5px 14px rgba(16,185,129,.20); } #clear { background: #fee2e2; color: #991b1b; } #save { background: #dbeafe; color: #1e40af; } #voice { background: #dcfce7; color: #166534; min-width: 48px; } #voiceConversation { background: #ede9fe; color: #6d28d9; min-width: 48px; } #voiceConversation.active { background: #ddd6fe; color: #5b21b6; } #voice.listening { background: #fee2e2; color: #991b1b; } #speak { background: #fef3c7; color: #92400e; min-width: 48px; } #speak.speaking { background: #fed7aa; }
     button:disabled { opacity: .6; cursor: wait; }
+    .composer { margin-top: 14px; background: rgba(255,255,255,.96); border: 1px solid #d1d5db; border-radius: 24px; padding: 9px 10px 7px; box-shadow: 0 8px 28px rgba(15,23,42,.10); display:block; }
+    .composer-row { display:flex; align-items:flex-end; gap:7px; min-width:0; }
+    .composer textarea { flex:1; min-width:0; resize:none; max-height:140px; border:0; outline:0; background:transparent; padding:10px 6px; font:inherit; font-size:16px; line-height:1.35; color:#172033; }
+    .composer textarea::placeholder { color:#8b93a3; }
+    .icon-btn, .send-btn { width:42px; height:42px; min-width:42px; border-radius:50%; padding:0; display:flex; align-items:center; justify-content:center; }
+    .icon-btn { background:#f1f5f9; color:#334155; border:1px solid #e2e8f0; font-size:21px; }
+    .icon-btn:hover { background:#e2e8f0; }
+    .send-btn { background:#111827; color:#fff; font-size:24px; font-weight:700; }
+    .send-btn:disabled { background:#9ca3af; }
+    .plus-wrap { position:relative; flex:0 0 auto; }
+    .plus-menu { position:absolute; left:0; bottom:52px; width:225px; background:#fff; border:1px solid #e5e7eb; border-radius:16px; box-shadow:0 18px 45px rgba(15,23,42,.18); padding:7px; display:none; z-index:50; }
+    .plus-menu.show { display:block; }
+    .menu-item { width:100%; display:flex; align-items:center; gap:11px; background:#fff; color:#172033; padding:10px; border-radius:11px; text-align:left; min-height:52px; }
+    .menu-item:hover { background:#f3f4f6; }
+    .menu-icon { width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:9px; background:#f1f5f9; font-size:19px; }
+    .menu-item strong { display:block; font-size:14px; }
+    .menu-item small { display:block; color:#6b7280; margin-top:2px; font-size:12px; }
+    .composer-tools { display:flex; gap:6px; overflow-x:auto; padding:5px 1px 0; scrollbar-width:none; }
+    .composer-tools::-webkit-scrollbar { display:none; }
+    .tool-pill { white-space:nowrap; min-height:31px; padding:0 10px; border-radius:999px; background:#f8fafc; color:#475569; border:1px solid #e2e8f0; font-size:12px; }
+    .tool-pill.active { background:#dcfce7; color:#047857; border-color:#a7f3d0; }
+    .tool-pill.danger { color:#991b1b; background:#fff1f2; }
+    .attachment-preview { display:none; align-items:center; gap:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:7px 10px; font-size:13px; color:#334155; max-width:100%; margin:8px 4px 0; }
+    .attachment-preview.show { display:flex; }
+    .attachment-preview span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:240px; flex:1; }
+    #removeAttachment { background:#fee2e2; color:#991b1b; min-height:30px; min-width:30px; padding:0; border-radius:50%; }
     .attachment-tools { display:flex; gap:7px; align-items:center; margin-top:10px; flex-wrap:wrap; }
     .attachment-btn { background:linear-gradient(135deg,#e0f2fe,#ede9fe); color:#4338ca; min-height:42px; padding:0 13px; }
     .attachment-preview { display:none; align-items:center; gap:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:7px 10px; font-size:13px; color:#334155; max-width:100%; }
@@ -69,7 +94,7 @@
     #renameConfirm { background: #2563eb; color: white; min-height: 42px; }
     @media (max-width: 700px) {
       .workspace { grid-template-columns: 1fr; } .history-panel { max-height: 230px; } #historyList { max-height: 150px; }
-      form { flex-wrap: wrap; } input { flex-basis: 100%; } form button { min-height: 44px; flex: 1; }
+      .composer { border-radius: 20px; } .composer-tools { margin-top: 2px; } .plus-menu { left: -2px; width: 215px; }
     }
   </style>
 </head>
@@ -84,16 +109,34 @@
       </aside>
       <section class="chat-area">
         <section id="chat" aria-live="polite"></section>
-        <div class="attachment-tools">
-          <button id="cameraBtn" class="attachment-btn" type="button">📷 Camera</button>
-          <button id="fileBtn" class="attachment-btn" type="button">🖼️ File</button>
-          <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden />
-          <input id="fileInput" type="file" accept="image/*" hidden />
-          <div id="attachmentPreview" class="attachment-preview"><span id="attachmentName"></span><button id="removeAttachment" type="button">Remove</button></div>
+        <div id="attachmentPreview" class="attachment-preview">
+          <span id="attachmentName"></span>
+          <button id="removeAttachment" type="button" aria-label="Remove attachment">×</button>
         </div>
-        <form id="chatForm">
-          <input id="message" autocomplete="off" placeholder="Type your message or ask about the image..." />
-          <button id="voice" type="button" title="Voice input">🎤</button><button id="agentMode" type="button" title="Toggle Agent Mode">🤖 Agent</button><button id="voiceConversation" type="button" title="Voice Conversation Mode">🎙️</button><button id="speak" type="button" title="Voice output">🔊</button><button id="send" type="submit">Send</button><button id="save" type="button">Save</button><button id="clear" type="button">Clear</button>
+        <form id="chatForm" class="composer">
+          <div class="composer-row">
+            <div class="plus-wrap">
+              <button id="plusButton" class="icon-btn" type="button" aria-label="Add photo or file" aria-expanded="false">＋</button>
+              <div id="plusMenu" class="plus-menu" role="menu">
+                <button id="cameraBtn" class="menu-item" type="button"><span class="menu-icon">📷</span><span><strong>Camera</strong><small>Take a photo</small></span></button>
+                <button id="fileBtn" class="menu-item" type="button"><span class="menu-icon">🖼️</span><span><strong>Photos</strong><small>Choose an image</small></span></button>
+                <button id="documentBtn" class="menu-item" type="button"><span class="menu-icon">📎</span><span><strong>File</strong><small>Attach a file</small></span></button>
+              </div>
+              <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden />
+              <input id="fileInput" type="file" accept="image/*" hidden />
+              <input id="documentInput" type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt" hidden />
+            </div>
+            <textarea id="message" rows="1" autocomplete="off" placeholder="Message Ibrar AI Agent"></textarea>
+            <button id="voice" class="icon-btn" type="button" title="Voice input" aria-label="Voice input">🎤</button>
+            <button id="send" class="send-btn" type="submit" title="Send" aria-label="Send">↑</button>
+          </div>
+          <div class="composer-tools">
+            <button id="agentMode" class="tool-pill" type="button" title="Toggle Agent Mode">🤖 Agent</button>
+            <button id="voiceConversation" class="tool-pill" type="button" title="Voice Conversation Mode">🎙️ Voice</button>
+            <button id="speak" class="tool-pill" type="button" title="Voice output">🔊 Read</button>
+            <button id="save" class="tool-pill" type="button">💾 Save</button>
+            <button id="clear" class="tool-pill danger" type="button">🗑 Clear</button>
+          </div>
         </form>
         <div class="history-note">Your chat history is saved in this browser.</div>
       </section>
@@ -115,7 +158,7 @@
   <script>
     const chat = document.getElementById("chat"), form = document.getElementById("chatForm"), input = document.getElementById("message");
     const send = document.getElementById("send"), agentMode = document.getElementById("agentMode"), save = document.getElementById("save"), clear = document.getElementById("clear"), voice = document.getElementById("voice"), voiceConversation = document.getElementById("voiceConversation"), speak = document.getElementById("speak");
-    const cameraBtn = document.getElementById("cameraBtn"), fileBtn = document.getElementById("fileBtn"), cameraInput = document.getElementById("cameraInput"), fileInput = document.getElementById("fileInput"), attachmentPreview = document.getElementById("attachmentPreview"), attachmentName = document.getElementById("attachmentName"), removeAttachment = document.getElementById("removeAttachment");
+    const plusButton = document.getElementById("plusButton"), plusMenu = document.getElementById("plusMenu"), cameraBtn = document.getElementById("cameraBtn"), fileBtn = document.getElementById("fileBtn"), documentBtn = document.getElementById("documentBtn"), cameraInput = document.getElementById("cameraInput"), fileInput = document.getElementById("fileInput"), documentInput = document.getElementById("documentInput"), attachmentPreview = document.getElementById("attachmentPreview"), attachmentName = document.getElementById("attachmentName"), removeAttachment = document.getElementById("removeAttachment");
     let attachedImage = null, attachedImageName = "";
     const newChat = document.getElementById("newChat"), renameSelected = document.getElementById("renameSelected"), historyList = document.getElementById("historyList"), historySearch = document.getElementById("historySearch"), searchChats = document.getElementById("searchChats");
     const renameBackdrop = document.getElementById("renameBackdrop"), renameInput = document.getElementById("renameInput");
@@ -555,11 +598,49 @@
       reader.readAsDataURL(file);
     }
 
-    cameraBtn.addEventListener("click", () => cameraInput.click());
-    fileBtn.addEventListener("click", () => fileInput.click());
+    function openPlusMenu() {
+      const show = !plusMenu.classList.contains("show");
+      plusMenu.classList.toggle("show", show);
+      plusButton.setAttribute("aria-expanded", String(show));
+    }
+    plusButton.addEventListener("click", (event) => { event.stopPropagation(); openPlusMenu(); });
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".plus-wrap")) {
+        plusMenu.classList.remove("show");
+        plusButton.setAttribute("aria-expanded", "false");
+      }
+    });
+    function closePlusMenu() {
+      plusMenu.classList.remove("show");
+      plusButton.setAttribute("aria-expanded", "false");
+    }
+    cameraBtn.addEventListener("click", () => { closePlusMenu(); cameraInput.click(); });
+    fileBtn.addEventListener("click", () => { closePlusMenu(); fileInput.click(); });
+    documentBtn.addEventListener("click", () => { closePlusMenu(); documentInput.click(); });
     cameraInput.addEventListener("change", () => prepareImage(cameraInput.files[0]));
     fileInput.addEventListener("change", () => prepareImage(fileInput.files[0]));
+    documentInput.addEventListener("change", () => {
+      const file = documentInput.files[0];
+      if (!file) return;
+      attachedImage = null;
+      attachedImageName = file.name;
+      attachmentName.textContent = "📎 " + file.name;
+      attachmentPreview.classList.add("show");
+      alert("This File option is ready in the interface. Image files can be analyzed now; PDF/Word/Excel processing needs the file-processing backend to be added next.");
+    });
     removeAttachment.addEventListener("click", clearAttachment);
+
+    // ChatGPT-style composer: Enter sends, Shift+Enter creates a new line.
+    input.addEventListener("input", () => {
+      input.style.height = "auto";
+      input.style.height = Math.min(input.scrollHeight, 140) + "px";
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        if (!send.disabled) form.requestSubmit();
+      }
+    });
 
     form.addEventListener("submit",async(event)=>{
       event.preventDefault(); const message=input.value.trim(); if(!message)return;
