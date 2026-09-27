@@ -22,12 +22,13 @@
     .history-panel { background: rgba(255,255,255,.82); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,.75); box-shadow: 0 14px 35px rgba(76,29,149,.10); border-radius: 20px; padding: 14px; display: flex; flex-direction: column; min-width: 0; }
     .history-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
     .history-header h2 { font-size: 17px; margin: 0; }
-    #newChat, #renameSelected { color: white; min-height: 38px; padding: 0 12px; font-size: 14px; }
+    #newChat, #renameSelected { color: white; min-height: 38px; padding: 0 12px; font-size: 14px; display:none; }
     #newChat { background: #2563eb; }
     #renameSelected { background: #059669; }
     #historySearch { width: 100%; margin: 0; padding: 10px 11px; font-size: 14px; border: 1px solid #d1d5db; border-radius: 10px; }
     #searchChats { background: #7c3aed; color: white; min-height: 42px; padding: 0 14px; font-size: 14px; }
     .history-search { display: flex; gap: 7px; margin: 0 0 10px; }
+    #historySearch { display:none; } #searchChats { display:none; }
     #historyList { overflow-y: auto; flex: 1; }
     .history-row { position: relative; margin-bottom: 8px; }
     .history-item { width: 100%; text-align: left; background: #f8fafc; color: #374151; padding: 10px 82px 10px 11px; min-height: auto; border: 1px solid #e5e7eb; overflow: hidden; }
@@ -65,6 +66,10 @@
     .menu-icon { width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:9px; background:#f1f5f9; font-size:19px; }
     .menu-item strong { display:block; font-size:14px; }
     .menu-item small { display:block; color:#6b7280; margin-top:2px; font-size:12px; }
+    .menu-divider { height:1px; background:#e5e7eb; margin:6px 4px; }
+    .menu-item.menu-danger { color:#991b1b; }
+    .menu-item.menu-danger .menu-icon { background:#fff1f2; }
+    .menu-item.active-menu { background:#ecfdf5; }
     .composer-tools { display:flex; gap:6px; overflow-x:auto; padding:5px 1px 0; scrollbar-width:none; }
     .composer-tools::-webkit-scrollbar { display:none; }
     .tool-pill { white-space:nowrap; min-height:31px; padding:0 10px; border-radius:999px; background:#f8fafc; color:#475569; border:1px solid #e2e8f0; font-size:12px; }
@@ -121,6 +126,16 @@
                 <button id="cameraBtn" class="menu-item" type="button"><span class="menu-icon">📷</span><span><strong>Camera</strong><small>Take a photo</small></span></button>
                 <button id="fileBtn" class="menu-item" type="button"><span class="menu-icon">🖼️</span><span><strong>Photos</strong><small>Choose an image</small></span></button>
                 <button id="documentBtn" class="menu-item" type="button"><span class="menu-icon">📎</span><span><strong>File</strong><small>Attach a file</small></span></button>
+                <div class="menu-divider"></div>
+                <button id="newChatMenu" class="menu-item" type="button"><span class="menu-icon">＋</span><span><strong>New Chat</strong><small>Start a new conversation</small></span></button>
+                <button id="searchChatsMenu" class="menu-item" type="button"><span class="menu-icon">🔎</span><span><strong>Search Chats</strong><small>Find a previous conversation</small></span></button>
+                <button id="renameSelectedMenu" class="menu-item" type="button"><span class="menu-icon">✏️</span><span><strong>Rename Chat</strong><small>Rename the current chat</small></span></button>
+                <button id="saveMenu" class="menu-item" type="button"><span class="menu-icon">💾</span><span><strong>Save Chat</strong><small>Save this conversation</small></span></button>
+                <button id="clearMenu" class="menu-item menu-danger" type="button"><span class="menu-icon">🗑️</span><span><strong>Clear Chat</strong><small>Clear this conversation</small></span></button>
+                <div class="menu-divider"></div>
+                <button id="agentModeMenu" class="menu-item" type="button"><span class="menu-icon">🤖</span><span><strong>Agent Mode</strong><small>Web search & agent tools</small></span></button>
+                <button id="voiceConversationMenu" class="menu-item" type="button"><span class="menu-icon">🎙️</span><span><strong>Voice Conversation</strong><small>Talk hands-free</small></span></button>
+                <button id="speakMenu" class="menu-item" type="button"><span class="menu-icon">🔊</span><span><strong>Read Last Answer</strong><small>Listen to the latest response</small></span></button>
               </div>
               <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden />
               <input id="fileInput" type="file" accept="image/*" hidden />
@@ -129,13 +144,6 @@
             <textarea id="message" rows="1" autocomplete="off" placeholder="Message Ibrar AI Agent"></textarea>
             <button id="voice" class="icon-btn" type="button" title="Voice input" aria-label="Voice input">🎤</button>
             <button id="send" class="send-btn" type="submit" title="Send" aria-label="Send">↑</button>
-          </div>
-          <div class="composer-tools">
-            <button id="agentMode" class="tool-pill" type="button" title="Toggle Agent Mode">🤖 Agent</button>
-            <button id="voiceConversation" class="tool-pill" type="button" title="Voice Conversation Mode">🎙️ Voice</button>
-            <button id="speak" class="tool-pill" type="button" title="Voice output">🔊 Read</button>
-            <button id="save" class="tool-pill" type="button">💾 Save</button>
-            <button id="clear" class="tool-pill danger" type="button">🗑 Clear</button>
           </div>
         </form>
         <div class="history-note">Your chat history is saved in this browser.</div>
@@ -159,6 +167,7 @@
     const chat = document.getElementById("chat"), form = document.getElementById("chatForm"), input = document.getElementById("message");
     const send = document.getElementById("send"), agentMode = document.getElementById("agentMode"), save = document.getElementById("save"), clear = document.getElementById("clear"), voice = document.getElementById("voice"), voiceConversation = document.getElementById("voiceConversation"), speak = document.getElementById("speak");
     const plusButton = document.getElementById("plusButton"), plusMenu = document.getElementById("plusMenu"), cameraBtn = document.getElementById("cameraBtn"), fileBtn = document.getElementById("fileBtn"), documentBtn = document.getElementById("documentBtn"), cameraInput = document.getElementById("cameraInput"), fileInput = document.getElementById("fileInput"), documentInput = document.getElementById("documentInput"), attachmentPreview = document.getElementById("attachmentPreview"), attachmentName = document.getElementById("attachmentName"), removeAttachment = document.getElementById("removeAttachment");
+    const newChatMenu = document.getElementById("newChatMenu"), searchChatsMenu = document.getElementById("searchChatsMenu"), renameSelectedMenu = document.getElementById("renameSelectedMenu"), saveMenu = document.getElementById("saveMenu"), clearMenu = document.getElementById("clearMenu"), agentModeMenu = document.getElementById("agentModeMenu"), voiceConversationMenu = document.getElementById("voiceConversationMenu"), speakMenu = document.getElementById("speakMenu");
     let attachedImage = null, attachedImageName = "";
     const newChat = document.getElementById("newChat"), renameSelected = document.getElementById("renameSelected"), historyList = document.getElementById("historyList"), historySearch = document.getElementById("historySearch"), searchChats = document.getElementById("searchChats");
     const renameBackdrop = document.getElementById("renameBackdrop"), renameInput = document.getElementById("renameInput");
@@ -559,6 +568,15 @@
     save.addEventListener("click",()=>{if(!conversationHistory.length){alert("There is no chat to save yet.");return;} if(saveCurrentChat())alert("Chat saved successfully.");else alert("Could not save the chat.");});
     newChat.addEventListener("click",()=>{if(conversationHistory.length)saveCurrentChat();createChat();});
     clear.addEventListener("click",clearCurrentChat);
+
+    newChatMenu.addEventListener("click",()=>{closePlusMenu(); if(conversationHistory.length)saveCurrentChat(); createChat();});
+    searchChatsMenu.addEventListener("click",()=>{closePlusMenu(); historySearch.style.display="block"; searchChats.style.display="block"; historySearch.focus();});
+    renameSelectedMenu.addEventListener("click",()=>{closePlusMenu(); if(activeChatId)openRename(activeChatId); else alert("Please select a chat first.");});
+    saveMenu.addEventListener("click",()=>{closePlusMenu(); save.click();});
+    clearMenu.addEventListener("click",()=>{closePlusMenu(); clearCurrentChat();});
+    agentModeMenu.addEventListener("click",()=>{setAgentMode(!agentModeActive); agentModeMenu.classList.toggle("active-menu",agentModeActive); closePlusMenu();});
+    voiceConversationMenu.addEventListener("click",()=>{closePlusMenu(); voiceConversation.click();});
+    speakMenu.addEventListener("click",()=>{closePlusMenu(); speak.click();});
     renameConfirm.addEventListener("click",renameActiveChat);
     renameSelected.addEventListener("click",()=>{if(activeChatId)openRename(activeChatId);else alert("Please select a chat first.");});
     searchChats.addEventListener("click",renderHistoryPanel);
