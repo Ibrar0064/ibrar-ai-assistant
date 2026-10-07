@@ -1,5 +1,6 @@
 const express = require("express");
 const path = require("path");
+const XLSX = require("xlsx");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -131,6 +132,48 @@ AGENT MODE:
 
 app.use(express.json({ limit: "12mb" }));
 app.use(express.static(path.join(__dirname, "public")));
+
+
+app.post("/api/transport/import", (req, res) => {
+  try {
+    const file = String(req.body?.file || "");
+    if (!file) return res.status(400).json({ error: "Excel file is required." });
+    if (file.length > 15000000) return res.status(413).json({ error: "The Excel report is too large." });
+    const match = file.match(/^data:.*;base64,(.*)$/s);
+    const base64 = match ? match[1] : file;
+    const workbook = XLSX.read(Buffer.from(base64, "base64"), { type: "buffer", cellDates: true });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    if (!sheet) return res.status(400).json({ error: "No worksheet was found." });
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+    const clean = rows.filter(row => row.some(v => String(v).trim() !== ""));
+    if (!clean.length) return res.status(400).json({ error: "The worksheet is empty." });
+    const normalize = v => String(v ?? "").trim().toLowerCase().replace(/[.#/\\_-]+/g, "").replace(/\s+/g, "");
+    const headers = clean[0].map(normalize);
+    const aliases = {
+      type:["type"], from:["from"], fromTime:["time"], to:["to"], toTime:["time"],
+      flight:["flight"], flightTime:["time"], no:["no","no."], file:["file","file#","fileno"],
+      customer:["customer"], pax:["pax"], pickup:["pickup","pick up"], dropoff:["dropoff","drop off"],
+      drv:["drvrep","drv/rep","driver","representative"], handler:["filehandler","handler"]
+    };
+    const timeIndexes = headers.map((h,i)=>h==="time"?i:-1).filter(i=>i>=0);
+    const usedTime={from:0,to:1,flight:2};
+    const findIndex=(keys, fallback=-1)=>{for(const key of keys){const i=headers.indexOf(normalize(key));if(i>=0)return i;}return fallback;};
+    const rowsOut=clean.slice(1).map(row=>{
+      const get=(keys,fallback=-1)=>{const i=findIndex(keys,fallback);return i>=0?String(row[i]??"").trim():"";};
+      return {
+        type:get(aliases.type),from:get(aliases.from),fromTime:timeIndexes.length>0?String(row[timeIndexes[usedTime.from]]??"").trim():"",
+        to:get(aliases.to),toTime:timeIndexes.length>1?String(row[timeIndexes[usedTime.to]]??"").trim():"",
+        flight:get(aliases.flight),flightTime:timeIndexes.length>2?String(row[timeIndexes[usedTime.flight]]??"").trim():"",
+        no:get(aliases.no),file:get(aliases.file),customer:get(aliases.customer),pax:get(aliases.pax),
+        pickup:get(aliases.pickup),dropoff:get(aliases.dropoff),drv:get(aliases.drv),handler:get(aliases.handler)
+      };
+    }).filter(r=>Object.values(r).some(v=>v));
+    res.json({ rows: rowsOut, sheet: workbook.SheetNames[0], count: rowsOut.length });
+  } catch (error) {
+    console.error("Transportation import error:", error);
+    res.status(400).json({ error: "Could not read that Excel report. Please export the Transportation Report from VINAS as Excel and try again." });
+  }
+});
 
 app.get("/api/health", (req, res) => {
   res.json({
